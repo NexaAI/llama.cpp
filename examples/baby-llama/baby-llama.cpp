@@ -1,6 +1,7 @@
 #include "ggml.h"
 #include "train.h"
 
+#include <vector>
 #include <cassert>
 #include <cstdlib>
 #include <cstring>

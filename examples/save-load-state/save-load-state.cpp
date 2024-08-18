@@ -28,11 +28,10 @@ int main(int argc, char ** argv) {
     std::string result2;
 
     // init
-    llama_init_result llama_init = llama_init_from_gpt_params(params);
+    llama_model * model;
+    llama_context * ctx;
 
-    llama_model * model = llama_init.model;
-    llama_context * ctx = llama_init.context;
-
+    std::tie(model, ctx) = llama_init_from_gpt_params(params);
     if (model == nullptr || ctx == nullptr) {
         fprintf(stderr, "%s : failed to init\n", __func__);
         return 1;
