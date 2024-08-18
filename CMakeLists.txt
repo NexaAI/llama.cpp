@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.14) # for add_link_options and implicit target directories.
 project("llama.cpp" C CXX)
 include(CheckIncludeFileCXX)
-
+# Add this near the top of the file, after the project() command
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ggml_llama/include)
 #set(CMAKE_WARN_DEPRECATED YES)
 set(CMAKE_WARN_UNUSED_CLI YES)
 
@@ -112,9 +113,8 @@ llama_option_depr(WARNING     LLAMA_CANN                GGML_CANN)
 # build the library
 #
 
-if (NOT TARGET ggml)
-    add_subdirectory(ggml)
-    # ... otherwise assume ggml is added by a parent CMakeLists.txt
+if (NOT TARGET ggml_llama)
+    add_subdirectory(ggml_llama)
 endif()
 add_subdirectory(src)
 
@@ -139,11 +139,14 @@ set(LLAMA_BIN_INSTALL_DIR     ${CMAKE_INSTALL_BINDIR}     CACHE PATH "Location o
 # determining _precisely_ which defines are necessary for the llama-config
 # package.
 #
-get_target_property(GGML_DIRECTORY ggml SOURCE_DIR)
-get_directory_property(GGML_DIR_DEFINES DIRECTORY ${GGML_DIRECTORY} COMPILE_DEFINITIONS)
-get_target_property(GGML_TARGET_DEFINES ggml COMPILE_DEFINITIONS)
+# if (TARGET ggml_llama)
+get_target_property(GGML_TARGET_DEFINES ggml_llama COMPILE_DEFINITIONS)
+get_directory_property(GGML_DIR_DEFINES DIRECTORY ggml_llama/src COMPILE_DEFINITIONS)
 set(GGML_TRANSIENT_DEFINES ${GGML_TARGET_DEFINES} ${GGML_DIR_DEFINES})
-get_target_property(GGML_LINK_LIBRARIES ggml LINK_LIBRARIES)
+get_target_property(GGML_LINK_LIBRARIES ggml_llama LINK_LIBRARIES)
+# else()
+#     message(FATAL_ERROR "Target ggml_llama does not exist.")
+# endif()
 
 set_target_properties(llama PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/llama.h)
 install(TARGETS llama LIBRARY PUBLIC_HEADER)

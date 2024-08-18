@@ -5,7 +5,7 @@ add_library(llava OBJECT
             clip.h
             )
 
-target_link_libraries(llava PRIVATE ggml llama ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(llava PRIVATE ggml_llama llama ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(llava PUBLIC .)
 target_include_directories(llava PUBLIC ../..)
@@ -18,7 +18,7 @@ if (BUILD_SHARED_LIBS)
     set_target_properties(llava PROPERTIES POSITION_INDEPENDENT_CODE ON)
     target_compile_definitions(llava PRIVATE LLAMA_SHARED LLAMA_BUILD)
     add_library(llava_shared SHARED $<TARGET_OBJECTS:llava>)
-    target_link_libraries(llava_shared PRIVATE ggml llama ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries(llava_shared PRIVATE ggml_llama llama ${CMAKE_THREAD_LIBS_INIT})
     install(TARGETS llava_shared LIBRARY)
 endif()
 
@@ -33,13 +33,6 @@ endif()
 set(TARGET llama-llava-cli)
 add_executable(${TARGET} llava-cli.cpp)
 set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME llama-llava-cli)
-install(TARGETS ${TARGET} RUNTIME)
-target_link_libraries(${TARGET} PRIVATE common llava ${CMAKE_THREAD_LIBS_INIT})
-target_compile_features(${TARGET} PRIVATE cxx_std_11)
-
-set(TARGET llama-minicpmv-cli)
-add_executable(${TARGET} minicpmv-cli.cpp)
-set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME llama-minicpmv-cli)
 install(TARGETS ${TARGET} RUNTIME)
 target_link_libraries(${TARGET} PRIVATE common llava ${CMAKE_THREAD_LIBS_INIT})
 target_compile_features(${TARGET} PRIVATE cxx_std_11)
