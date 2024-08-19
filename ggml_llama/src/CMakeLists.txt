@@ -817,7 +817,7 @@ if (GGML_CPU_HBM)
 
     add_compile_definitions(GGML_USE_CPU_HBM)
 
-    target_link_libraries(ggml PUBLIC memkind)
+    target_link_libraries(ggml_llama PUBLIC memkind)
 endif()
 
 if (GGML_CANN)
@@ -1281,7 +1281,7 @@ endif()
 
 # ggml
 
-add_library(ggml
+add_library(ggml_llama
             ../include/ggml.h
             ../include/ggml-alloc.h
             ../include/ggml-backend.h
@@ -1305,25 +1305,25 @@ add_library(ggml
             )
 
 if (EMSCRIPTEN)
-    set_target_properties(ggml PROPERTIES COMPILE_FLAGS "-msimd128")
+    set_target_properties(ggml_llama PROPERTIES COMPILE_FLAGS "-msimd128")
 endif()
 
-target_compile_definitions(ggml PUBLIC  ${GGML_CDEF_PUBLIC})
-target_include_directories(ggml PUBLIC ../include)
-target_include_directories(ggml PRIVATE . ${GGML_EXTRA_INCLUDES})
-target_link_directories(ggml PRIVATE ${GGML_EXTRA_LIBDIRS})
-target_compile_features   (ggml PRIVATE c_std_11) # don't bump
+target_compile_definitions(ggml_llama PUBLIC  ${GGML_CDEF_PUBLIC})
+target_include_directories(ggml_llama PUBLIC ../include)
+target_include_directories(ggml_llama PRIVATE . ${GGML_EXTRA_INCLUDES})
+target_link_directories(ggml_llama PRIVATE ${GGML_EXTRA_LIBDIRS})
+target_compile_features   (ggml_llama PRIVATE c_std_11) # don't bump
 
-target_link_libraries(ggml PRIVATE Threads::Threads ${GGML_EXTRA_LIBS})
+target_link_libraries(ggml_llama PRIVATE Threads::Threads ${GGML_EXTRA_LIBS})
 
 find_library(MATH_LIBRARY m)
 if (MATH_LIBRARY)
     if (NOT WIN32 OR NOT GGML_SYCL)
-        target_link_libraries(ggml PRIVATE ${MATH_LIBRARY})
+        target_link_libraries(ggml_llama PRIVATE ${MATH_LIBRARY})
     endif()
 endif()
 
 if (BUILD_SHARED_LIBS)
-    set_target_properties(ggml PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(ggml PRIVATE GGML_SHARED GGML_BUILD)
+    set_target_properties(ggml_llama PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_compile_definitions(ggml_llama PRIVATE GGML_SHARED GGML_BUILD)
 endif()

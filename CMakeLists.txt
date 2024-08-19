@@ -63,9 +63,9 @@ option(LLAMA_SANITIZE_ADDRESS   "llama: enable address sanitizer"   OFF)
 option(LLAMA_SANITIZE_UNDEFINED "llama: enable undefined sanitizer" OFF)
 
 # extra artifacts
-option(LLAMA_BUILD_TESTS    "llama: build tests"          ${LLAMA_STANDALONE})
-option(LLAMA_BUILD_EXAMPLES "llama: build examples"       ${LLAMA_STANDALONE})
-option(LLAMA_BUILD_SERVER   "llama: build server example" ${LLAMA_STANDALONE})
+# option(LLAMA_BUILD_TESTS    "llama: build tests"          ${LLAMA_STANDALONE})
+# option(LLAMA_BUILD_EXAMPLES "llama: build examples"       ${LLAMA_STANDALONE})
+# option(LLAMA_BUILD_SERVER   "llama: build server example" ${LLAMA_STANDALONE})
 
 # 3rd party libs
 option(LLAMA_CURL "llama: use libcurl to download model from an URL" OFF)
@@ -73,14 +73,14 @@ option(LLAMA_CURL "llama: use libcurl to download model from an URL" OFF)
 # Required for relocatable CMake package
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/build-info.cmake)
 
-# override ggml options
+# override ggml_llama options
 set(GGML_SANITIZE_THREAD    ${LLAMA_SANITIZE_THREAD})
 set(GGML_SANITIZE_ADDRESS   ${LLAMA_SANITIZE_ADDRESS})
 set(GGML_SANITIZE_UNDEFINED ${LLAMA_SANITIZE_UNDEFINED})
 set(GGML_ALL_WARNINGS       ${LLAMA_ALL_WARNINGS})
 set(GGML_FATAL_WARNINGS     ${LLAMA_FATAL_WARNINGS})
 
-# change the default for these ggml options
+# change the default for these ggml_llama options
 if (NOT DEFINED GGML_LLAMAFILE)
     set(GGML_LLAMAFILE ON)
 endif()
@@ -112,9 +112,9 @@ llama_option_depr(WARNING     LLAMA_CANN                GGML_CANN)
 # build the library
 #
 
-if (NOT TARGET ggml)
-    add_subdirectory(ggml)
-    # ... otherwise assume ggml is added by a parent CMakeLists.txt
+if (NOT TARGET ggml_llama)
+    add_subdirectory(ggml_llama)
+    # ... otherwise assume ggml_llama is added by a parent CMakeLists.txt
 endif()
 add_subdirectory(src)
 
@@ -139,11 +139,11 @@ set(LLAMA_BIN_INSTALL_DIR     ${CMAKE_INSTALL_BINDIR}     CACHE PATH "Location o
 # determining _precisely_ which defines are necessary for the llama-config
 # package.
 #
-get_target_property(GGML_DIRECTORY ggml SOURCE_DIR)
+get_target_property(GGML_DIRECTORY ggml_llama SOURCE_DIR)
 get_directory_property(GGML_DIR_DEFINES DIRECTORY ${GGML_DIRECTORY} COMPILE_DEFINITIONS)
-get_target_property(GGML_TARGET_DEFINES ggml COMPILE_DEFINITIONS)
+get_target_property(GGML_TARGET_DEFINES ggml_llama COMPILE_DEFINITIONS)
 set(GGML_TRANSIENT_DEFINES ${GGML_TARGET_DEFINES} ${GGML_DIR_DEFINES})
-get_target_property(GGML_LINK_LIBRARIES ggml LINK_LIBRARIES)
+get_target_property(GGML_LINK_LIBRARIES ggml_llama LINK_LIBRARIES)
 
 set_target_properties(llama PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/llama.h)
 install(TARGETS llama LIBRARY PUBLIC_HEADER)
@@ -190,12 +190,12 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/llama.pc"
 
 add_subdirectory(common)
 
-if (LLAMA_BUILD_TESTS AND NOT CMAKE_JS_VERSION)
-    include(CTest)
-    add_subdirectory(tests)
-endif ()
+# if (LLAMA_BUILD_TESTS AND NOT CMAKE_JS_VERSION)
+#     include(CTest)
+#     add_subdirectory(tests)
+# endif ()
 
-if (LLAMA_BUILD_EXAMPLES)
-    add_subdirectory(examples)
-    add_subdirectory(pocs)
-endif()
+# if (LLAMA_BUILD_EXAMPLES)
+#     add_subdirectory(examples)
+#     add_subdirectory(pocs)
+# endif()
