@@ -63,9 +63,9 @@ option(LLAMA_SANITIZE_ADDRESS   "llama: enable address sanitizer"   OFF)
 option(LLAMA_SANITIZE_UNDEFINED "llama: enable undefined sanitizer" OFF)
 
 # extra artifacts
-# option(LLAMA_BUILD_TESTS    "llama: build tests"          ${LLAMA_STANDALONE})
-# option(LLAMA_BUILD_EXAMPLES "llama: build examples"       ${LLAMA_STANDALONE})
-# option(LLAMA_BUILD_SERVER   "llama: build server example" ${LLAMA_STANDALONE})
+option(LLAMA_BUILD_TESTS    "llama: build tests"          ${LLAMA_STANDALONE})
+option(LLAMA_BUILD_EXAMPLES "llama: build examples"       ${LLAMA_STANDALONE})
+option(LLAMA_BUILD_SERVER   "llama: build server example" ${LLAMA_STANDALONE})
 
 # 3rd party libs
 option(LLAMA_CURL "llama: use libcurl to download model from an URL" OFF)
@@ -190,12 +190,12 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/llama.pc"
 
 add_subdirectory(common)
 
-# if (LLAMA_BUILD_TESTS AND NOT CMAKE_JS_VERSION)
-#     include(CTest)
-#     add_subdirectory(tests)
-# endif ()
+if (LLAMA_BUILD_TESTS AND NOT CMAKE_JS_VERSION)
+    include(CTest)
+    add_subdirectory(tests)
+endif ()
 
-# if (LLAMA_BUILD_EXAMPLES)
-#     add_subdirectory(examples)
-#     add_subdirectory(pocs)
-# endif()
+if (LLAMA_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+    add_subdirectory(pocs)
+endif()

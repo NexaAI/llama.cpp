@@ -14,3 +14,13 @@ make clean
 cmake -B build
 cmake --build build --config Release -j 24
 ```
+
+# Error handling
+If you got below error for `kompute`:
+```
+fatal: cannot chdir to '../../../ggml/src/kompute': No such file or directory
+```
+You can fix it by running below command:
+```
+git reset ggml_llama/src/kompute
+```
