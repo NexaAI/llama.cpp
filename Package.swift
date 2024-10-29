@@ -71,10 +71,7 @@ let package = Package(
             sources: sources,
             resources: resources,
             publicHeadersPath: "spm-headers",
-            cSettings: cSettings + [
-                .headerSearchPath("ggml_llama/src"),
-                .headerSearchPath("ggml_llama/include")
-            ],
+            cSettings: cSettings,
             linkerSettings: linkerSettings
         )
     ],
