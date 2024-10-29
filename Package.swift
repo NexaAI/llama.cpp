@@ -73,7 +73,7 @@ let package = Package(
             publicHeadersPath: "spm-headers",
             cSettings: cSettings + [
                 .headerSearchPath("ggml_llama/src"),
-                .headerSearchPath("include")
+                .headerSearchPath("ggml_llama/include")
             ],
             linkerSettings: linkerSettings
         )
