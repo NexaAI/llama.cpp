@@ -65,13 +65,16 @@ let package = Package(
                "scripts",
                "models",
                "tests",
-            //    "CMakeLists.txt",
+               "CMakeLists.txt",
                "Makefile"
             ],
             sources: sources,
             resources: resources,
             publicHeadersPath: "spm-headers",
-            cSettings: cSettings,
+            cSettings: cSettings + [
+                .headerSearchPath("ggml_llama/src"),
+                .headerSearchPath("include")
+            ],
             linkerSettings: linkerSettings
         )
     ],
