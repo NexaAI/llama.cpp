@@ -65,7 +65,7 @@ let package = Package(
                "scripts",
                "models",
                "tests",
-               "CMakeLists.txt",
+            //    "CMakeLists.txt",
                "Makefile"
             ],
             sources: sources,
