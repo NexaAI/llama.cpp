@@ -74,7 +74,6 @@ let package = Package(
             cSettings: cSettings + [
                 .headerSearchPath("ggml_llama/src"),
                 .headerSearchPath("ggml_llama/include")
-                .headerSearchPath("include")
             ],
             linkerSettings: linkerSettings
         )
