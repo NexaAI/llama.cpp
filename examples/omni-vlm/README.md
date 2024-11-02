@@ -82,7 +82,7 @@ with safe_open("<PATH TO nano-vlm-instruct>/model.safetensors", framework="pt", 
     save_file(tensors, "<PATH TO nano-vlm-processor>/model.safetensors")
 ```
 
-```python
+```console
 python convert_hf_to_gguf.py <PATH TO nano-vlm-processor>
 ```
 Finally we will get LLM GGUF model: `<PATH TO nano-vlm-processor>/Nano-Llm-494M-F16.ggu`
@@ -96,3 +96,14 @@ Finally we will get LLM GGUF model: `<PATH TO nano-vlm-processor>/Nano-Llm-494M-
 ```
 The results will print on the screen:
 > The image depicts a grey and white cat with its head pressed against the camera, appearing as if it is staring directly into the lens. The cat is surrounded by black and white stripes, adding a unique touch to its appearance. The black background creates a strong contrast and highlights the cat's features, making it a captivating scene.
+
+8) Python interface:
+
+After successfully compiling omni_vlm_wrapper_shared dynamic library, run:
+```console
+python omni_vlm_demo.py \
+  --model <PATH TO nano-vlm-processor>/Nano-Llm-494M-F16.gguf \
+  --mmproj <PATH TO nano-vlm-instruct>/mmproj-omni-vlm-f16.gguf \
+  --prompt="<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nDescribe this image for me\n<|vision_start|><|image_pad|><|vision_end|><|im_end|>" \
+  --image-path cat.png
+```
