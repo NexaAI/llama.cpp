@@ -36,3 +36,15 @@ set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME omni-vlm-cli)
 install(TARGETS ${TARGET} RUNTIME)
 target_link_libraries(${TARGET} PRIVATE common omni_vlm ${CMAKE_THREAD_LIBS_INIT})
 target_compile_features(${TARGET} PRIVATE cxx_std_11)
+
+#=== for omni-vlm-wrapper
+add_library(omni_vlm_wrapper_shared SHARED omni-vlm-wrapper.cpp $<TARGET_OBJECTS:omni_vlm>)
+target_link_libraries(omni_vlm_wrapper_shared PRIVATE common ggml_llama llama ${CMAKE_THREAD_LIBS_INIT})
+install(TARGETS omni_vlm_wrapper_shared LIBRARY)
+
+# set(TARGET omni-vlm-wrapper-cli)
+# add_executable(${TARGET} omni-vlm-wrapper-cli.cpp)
+# set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME omni-vlm-wrapper-cli)
+# install(TARGETS ${TARGET} RUNTIME)
+# target_link_libraries(${TARGET} PRIVATE omni_vlm_wrapper_shared ${CMAKE_THREAD_LIBS_INIT})
+# target_compile_features(${TARGET} PRIVATE cxx_std_11)

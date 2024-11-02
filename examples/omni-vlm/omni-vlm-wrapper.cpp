@@ -11,7 +11,79 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 #include <vector>
+#include <string>
+#include <iostream>
+
+#include "omni-vlm-wrapper.h"
+
+
+struct omnivlm_context {
+    struct clip_ctx * ctx_clip = NULL;
+    struct llama_context * ctx_llama = NULL;
+    struct llama_model * model = NULL;
+};
+
+static struct gpt_params params;
+static struct llama_model* model;
+static struct omnivlm_context* ctx_omnivlm;
+
+static struct omni_image_embed * load_image(omnivlm_context * ctx_omnivlm, gpt_params * params, const std::string & fname) {
+
+    // load and preprocess the image
+    omni_image_embed * embed = NULL;
+    embed = omnivlm_image_embed_make_with_filename(ctx_omnivlm->ctx_clip, params->cpuparams.n_threads, fname.c_str());
+    if (!embed) {
+        fprintf(stderr, "%s: is %s really an image file?\n", __func__, fname.c_str());
+        return NULL;
+    }
+
+    return embed;
+}
+
+static struct llama_model * omnivlm_init(gpt_params * params) {
+    llama_backend_init();
+    llama_numa_init(params->numa);
+
+    llama_model_params model_params = llama_model_params_from_gpt_params(*params);
+
+    llama_model * model = llama_load_model_from_file(params->model.c_str(), model_params);
+    if (model == NULL) {
+        LOG_TEE("%s: unable to load model\n" , __func__);
+        return NULL;
+    }
+    return model;
+}
+
+static struct omnivlm_context * omnivlm_init_context(gpt_params * params, llama_model * model) {
+    const char * clip_path = params->mmproj.c_str();
+
+    auto prompt = params->prompt;
+    if (prompt.empty()) {
+        prompt = "describe the image in detail.";
+    }
+
+    auto ctx_clip = clip_model_load(clip_path, /*verbosity=*/ 10);
+
+
+    llama_context_params ctx_params = llama_context_params_from_gpt_params(*params);
+    ctx_params.n_ctx           = params->n_ctx < 2048 ? 2048 : params->n_ctx; // we need a longer context size to process image embeddings
+
+    llama_context * ctx_llama = llama_new_context_with_model(model, ctx_params);
+
+    if (ctx_llama == NULL) {
+        LOG_TEE("%s: failed to create the llama_context\n" , __func__);
+        return NULL;
+    }
+
+    ctx_omnivlm = (struct omnivlm_context *)malloc(sizeof(omnivlm_context));
+
+    ctx_omnivlm->ctx_llama = ctx_llama;
+    ctx_omnivlm->ctx_clip = ctx_clip;
+    ctx_omnivlm->model = model;
+    return ctx_omnivlm;
+}
 
 static bool eval_tokens(struct llama_context * ctx_llama, std::vector<llama_token> tokens, int n_batch, int * n_past) {
     int N = (int) tokens.size();
@@ -57,79 +129,6 @@ static const char * sample(struct gpt_sampler * smpl,
     return ret.c_str();
 }
 
-static const std::string IMG_PAD = "<|image_pad|>";
-
-static void find_image_tag_in_prompt(const std::string& prompt, size_t& idx) {
-    // begin_out = prompt.find(IMG_BASE64_TAG_BEGIN);
-    // end_out = prompt.find(IMG_BASE64_TAG_END, (begin_out == std::string::npos) ? 0UL : begin_out);
-    idx = prompt.find(IMG_PAD);
-}
-
-static bool prompt_contains_image(const std::string& prompt) {
-    size_t begin;
-    find_image_tag_in_prompt(prompt, begin);
-    return (begin != std::string::npos);
-}
-
-// replaces the base64 image tag in the prompt with `replacement`
-static omni_image_embed * omnivlm_image_embed_make_with_prompt(struct clip_ctx * ctx_clip, int n_threads, const std::string& prompt) {
-    size_t idx;
-    find_image_tag_in_prompt(prompt, idx);
-    if (idx == std::string::npos) {
-        LOG_TEE("%s: invalid base64 image tag. must be %s\n", __func__, IMG_PAD.c_str());
-        return NULL;
-    }
-
-    auto base64_str = prompt.substr(idx, IMG_PAD.size());
-
-    auto required_bytes = base64::required_encode_size(base64_str.size());
-    auto img_bytes = std::vector<unsigned char>(required_bytes);
-    base64::decode(base64_str.begin(), base64_str.end(), img_bytes.begin());
-
-    auto embed = omnivlm_image_embed_make_with_bytes(ctx_clip, n_threads, img_bytes.data(), img_bytes.size());
-    if (!embed) {
-        LOG_TEE("%s: could not load image from base64 string.\n", __func__);
-        return NULL;
-    }
-
-    return embed;
-}
-
-static std::string remove_image_from_prompt(const std::string& prompt, const char * replacement = "") {
-    size_t begin;
-    find_image_tag_in_prompt(prompt, begin);
-    if (begin == std::string::npos) {
-        return prompt;
-    }
-    auto pre = prompt.substr(0, begin);
-    auto post = prompt.substr(begin + IMG_PAD.size());
-    return pre + replacement + post;
-}
-
-struct omnivlm_context {
-    struct clip_ctx * ctx_clip = NULL;
-    struct llama_context * ctx_llama = NULL;
-    struct llama_model * model = NULL;
-};
-
-static void print_usage(int, char ** argv) {
-    LOG("\n example usage:\n");
-    LOG("\n     %s -m <nano-vlm-instruct/ggml-model-q5_k.gguf> --mmproj <nano-vlm-instruct/mmproj-model-f16.gguf> --image <path/to/an/image.jpg> --image <path/to/another/image.jpg>\n", argv[0]);
-}
-
-static struct omni_image_embed * load_image(omnivlm_context * ctx_omnivlm, gpt_params * params, const std::string & fname) {
-
-    // load and preprocess the image
-    omni_image_embed * embed = NULL;
-    embed = omnivlm_image_embed_make_with_filename(ctx_omnivlm->ctx_clip, params->cpuparams.n_threads, fname.c_str());
-    if (!embed) {
-        fprintf(stderr, "%s: is %s really an image file?\n", __func__, fname.c_str());
-        return NULL;
-    }
-
-    return embed;
-}
-
 static void process_prompt(struct omnivlm_context * ctx_omnivlm, struct omni_image_embed * image_embed, gpt_params * params, const std::string & prompt) {
     int n_past = 0;
 
@@ -147,7 +146,7 @@ static void process_prompt(struct omnivlm_context * ctx_omnivlm, struct omni_ima
                 LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(ctx_omnivlm->ctx_llama, tmp[i]).c_str());
             }
         }
-        LOG_TEE("user_prompt: %s\n", user_prompt.c_str());
+        // LOG_TEE("user_prompt: %s\n", user_prompt.c_str());
         if (params->verbose_prompt) {
             auto tmp = ::llama_tokenize(ctx_omnivlm->ctx_llama, user_prompt, true, true);
             for (int i = 0; i < (int) tmp.size(); i++) {
@@ -198,49 +197,6 @@ static void process_prompt(struct omnivlm_context * ctx_omnivlm, struct omni_ima
     printf("\n");
 }
 
-static struct llama_model * omnivlm_init(gpt_params * params) {
-    llama_backend_init();
-    llama_numa_init(params->numa);
-
-    llama_model_params model_params = llama_model_params_from_gpt_params(*params);
-
-    llama_model * model = llama_load_model_from_file(params->model.c_str(), model_params);
-    if (model == NULL) {
-        LOG_TEE("%s: unable to load model\n" , __func__);
-        return NULL;
-    }
-    return model;
-}
-
-static struct omnivlm_context * omnivlm_init_context(gpt_params * params, llama_model * model) {
-    const char * clip_path = params->mmproj.c_str();
-
-    auto prompt = params->prompt;
-    if (prompt.empty()) {
-        prompt = "describe the image in detail.";
-    }
-
-    auto ctx_clip = clip_model_load(clip_path, /*verbosity=*/ 10);
-
-
-    llama_context_params ctx_params = llama_context_params_from_gpt_params(*params);
-    ctx_params.n_ctx           = params->n_ctx < 2048 ? 2048 : params->n_ctx; // we need a longer context size to process image embeddings
-
-    llama_context * ctx_llama = llama_new_context_with_model(model, ctx_params);
-
-    if (ctx_llama == NULL) {
-        LOG_TEE("%s: failed to create the llama_context\n" , __func__);
-        return NULL;
-    }
-
-    auto * ctx_omnivlm = (struct omnivlm_context *)malloc(sizeof(omnivlm_context));
-
-    ctx_omnivlm->ctx_llama = ctx_llama;
-    ctx_omnivlm->ctx_clip = ctx_clip;
-    ctx_omnivlm->model = model;
-    return ctx_omnivlm;
-}
-
 static void omnivlm_free(struct omnivlm_context * ctx_omnivlm) {
     if (ctx_omnivlm->ctx_clip) {
         clip_free(ctx_omnivlm->ctx_clip);
@@ -252,46 +208,45 @@ static void omnivlm_free(struct omnivlm_context * ctx_omnivlm) {
     llama_backend_free();
 }
 
-int main(int argc, char ** argv) {
-    ggml_time_init();
+static void print_usage(int, char ** argv) {
+    LOG("\n example usage:\n");
+    LOG("\n     %s -m <nano-vlm-instruct/ggml-model-q5_k.gguf> --mmproj <nano-vlm-instruct/mmproj-model-f16.gguf> --image <path/to/an/image.jpg> --image <path/to/another/image.jpg>\n", argv[0]);
+}
 
-    gpt_params params;
-
-    if (!gpt_params_parse(argc, argv, params, LLAMA_EXAMPLE_LLAVA, print_usage)) {
-        return 1;
+// inference interface definition
+void omnivlm_init(const char* llm_model_path, const char* projector_model_path) {
+    const char* argv = "hello-omni-vlm-wrapper-cli";
+    char* nc_argv = const_cast<char*>(argv);
+    if (!gpt_params_parse(1, &nc_argv, params, LLAMA_EXAMPLE_LLAVA, print_usage)) {
+        throw std::runtime_error("init params error.");
     }
-
-    if (params.mmproj.empty() || (params.image.empty() && !prompt_contains_image(params.prompt))) {
-        print_usage(argc, argv);
-        return 1;
-    }
-
-    params.prompt = "<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nDescribe this image for me\n<|vision_start|><|image_pad|><|vision_end|><|im_end|>";
-
-    auto * model = omnivlm_init(&params);
-    if (model == NULL) {
+    params.model = llm_model_path;
+    params.mmproj = projector_model_path;
+    model = omnivlm_init(&params);
+    if (model == nullptr) {
         fprintf(stderr, "%s: error: failed to init omnivlm model\n", __func__);
-        return 1;
+        throw std::runtime_error("Failed to init omnivlm model");
     }
+    ctx_omnivlm = omnivlm_init_context(&params, model);
+}
 
-
-    auto * ctx_omnivlm = omnivlm_init_context(&params, model);
-    for (auto & image : params.image) {
-        auto * image_embed = load_image(ctx_omnivlm, &params, image);
-        if (!image_embed) {
-            LOG_TEE("%s: failed to load image %s. Terminating\n\n", __func__, image.c_str());
-            return 1;
-        }
-        // process the prompt
-        process_prompt(ctx_omnivlm, image_embed, &params, params.prompt);
-
-        llama_perf_print(ctx_omnivlm->ctx_llama, LLAMA_PERF_TYPE_CONTEXT);
-        omnivlm_image_embed_free(image_embed);
+void omnivlm_inference(const char *prompt, const char *imag_path) {
+    std::string image = imag_path;
+    params.prompt = prompt;
+    auto * image_embed = load_image(ctx_omnivlm, &params, image);
+    if (!image_embed) {
+        LOG_TEE("%s: failed to load image %s. Terminating\n\n", __func__, image.c_str());
+        throw std::runtime_error("failed to load image " + image);
     }
+    // process the prompt
+    process_prompt(ctx_omnivlm, image_embed, &params, params.prompt);
+
+    // llama_perf_print(ctx_omnivlm->ctx_llama, LLAMA_PERF_TYPE_CONTEXT);
+    omnivlm_image_embed_free(image_embed);
+}
+
+void omnivlm_free() {
     ctx_omnivlm->model = NULL;
     omnivlm_free(ctx_omnivlm);
-
     llama_free_model(model);
-
-    return 0;
 }
