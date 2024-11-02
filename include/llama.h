@@ -102,6 +102,7 @@ extern "C" {
         LLAMA_VOCAB_PRE_TYPE_BLOOM          = 23,
         LLAMA_VOCAB_PRE_TYPE_GPT3_FINNISH   = 24,
         LLAMA_VOCAB_PRE_TYPE_EXAONE         = 25,
+        LLAMA_VOCAB_PRE_TYPE_CHAMELEON      = 26,
     };
 
     enum llama_rope_type {
@@ -192,6 +193,7 @@ extern "C" {
         LLAMA_POOLING_TYPE_MEAN = 1,
         LLAMA_POOLING_TYPE_CLS  = 2,
         LLAMA_POOLING_TYPE_LAST = 3,
+        LLAMA_POOLING_TYPE_RANK = 4, // used by reranking models to attach the classification head to the graph
     };
 
     enum llama_attention_type {
@@ -201,9 +203,9 @@ extern "C" {
     };
 
     enum llama_split_mode {
-        LLAMA_SPLIT_MODE_NONE    = 0, // single GPU
-        LLAMA_SPLIT_MODE_LAYER   = 1, // split layers and KV across GPUs
-        LLAMA_SPLIT_MODE_ROW     = 2, // split rows across GPUs
+        LLAMA_SPLIT_MODE_NONE  = 0, // single GPU
+        LLAMA_SPLIT_MODE_LAYER = 1, // split layers and KV across GPUs
+        LLAMA_SPLIT_MODE_ROW   = 2, // split rows across GPUs
     };
 
     // TODO: simplify (https://github.com/ggerganov/llama.cpp/pull/9294#pullrequestreview-2286561979)
@@ -343,7 +345,7 @@ extern "C" {
         bool embeddings;  // if true, extract embeddings (together with logits)
         bool offload_kqv; // whether to offload the KQV ops (including the KV cache) to GPU
         bool flash_attn;  // whether to use flash attention [EXPERIMENTAL]
-      //bool no_perf;     // whether to measure performance timings, TODO: implement
+        bool no_perf;     // whether to measure performance timings
 
         // Abort callback
         // if it returns true, execution of llama_decode() will be aborted
@@ -441,6 +443,7 @@ extern "C" {
     LLAMA_API int32_t llama_n_ctx_train(const struct llama_model * model);
     LLAMA_API int32_t llama_n_embd     (const struct llama_model * model);
     LLAMA_API int32_t llama_n_layer    (const struct llama_model * model);
+    LLAMA_API int32_t llama_n_head     (const struct llama_model * model);
 
     LLAMA_API const struct llama_model * llama_get_model(const struct llama_context * ctx);
 
@@ -870,7 +873,8 @@ extern "C" {
 
     // Get the embeddings for a sequence id
     // Returns NULL if pooling_type is LLAMA_POOLING_TYPE_NONE
-    // shape: [n_embd] (1-dimensional)
+    // when pooling_type == LLAMA_POOLING_TYPE_RANK, returns float[1] with the rank of the sequence
+    // otherwise: float[n_embd] (1-dimensional)
     LLAMA_API float * llama_get_embeddings_seq(struct llama_context * ctx, llama_seq_id seq_id);
 
     //
@@ -908,6 +912,8 @@ extern "C" {
 
     //
     // Tokenization
+    //
+    // The API is thread-safe.
     //
 
     /// @details Convert the provided text into tokens.
@@ -1056,12 +1062,16 @@ extern "C" {
     LLAMA_API struct llama_sampler * llama_sampler_chain_get(const struct llama_sampler * chain, int32_t i);
     LLAMA_API int                    llama_sampler_chain_n  (const struct llama_sampler * chain);
 
+    // after removing a sampler, the chain will no longer own it, and it will not be freed when the chain is freed
+    LLAMA_API struct llama_sampler * llama_sampler_chain_remove(   struct llama_sampler * chain, int32_t i);
+
     // available samplers:
 
     LLAMA_API struct llama_sampler * llama_sampler_init_greedy     (void);
     LLAMA_API struct llama_sampler * llama_sampler_init_dist       (uint32_t seed);
 
     /// @details Sorts candidate tokens by their logits in descending order and calculate probabilities based on logits.
+    /// NOTE: Avoid using on the full vocabulary as the sorting can become slow. For example, apply top-k or top-p sampling first.
     LLAMA_API struct llama_sampler * llama_sampler_init_softmax    (void);
 
     /// @details Top-K sampling described in academic paper "The Curious Case of Neural Text Degeneration" https://arxiv.org/abs/1904.09751
@@ -1127,6 +1137,10 @@ extern "C" {
                              int32_t   n_logit_bias,
               const llama_logit_bias * logit_bias);
 
+
+    // Returns the seed used by the sampler if applicable, LLAMA_DEFAULT_SEED otherwise
+    LLAMA_API uint32_t llama_sampler_get_seed(const struct llama_sampler * smpl);
+
     /// @details Sample and accept a token from the idx-th output of the last evaluation
     //
     // Shorthand for:
@@ -1169,13 +1183,30 @@ extern "C" {
     // NOTE: Used by llama.cpp examples, avoid using in third-party apps. Instead, do your own performance measurements.
     //
 
-    enum llama_perf_type {
-        LLAMA_PERF_TYPE_CONTEXT       = 0,
-        LLAMA_PERF_TYPE_SAMPLER_CHAIN = 1,
+    struct llama_perf_context_data {
+        double t_start_ms;
+        double t_load_ms;
+        double t_p_eval_ms;
+        double t_eval_ms;
+
+        int32_t n_p_eval;
+        int32_t n_eval;
     };
 
-    LLAMA_API void llama_perf_print(const void * ctx, enum llama_perf_type type);
-    LLAMA_API void llama_perf_reset(      void * ctx, enum llama_perf_type type);
+    struct llama_perf_sampler_data {
+        double t_sample_ms;
+
+        int32_t n_sample;
+    };
+
+    LLAMA_API struct llama_perf_context_data llama_perf_context      (const struct llama_context * ctx);
+    LLAMA_API void                           llama_perf_context_print(const struct llama_context * ctx);
+    LLAMA_API void                           llama_perf_context_reset(      struct llama_context * ctx);
+
+    // NOTE: the following work only with samplers constructed via llama_sampler_chain_init
+    LLAMA_API struct llama_perf_sampler_data llama_perf_sampler      (const struct llama_sampler * chain);
+    LLAMA_API void                           llama_perf_sampler_print(const struct llama_sampler * chain);
+    LLAMA_API void                           llama_perf_sampler_reset(      struct llama_sampler * chain);
 
     LLAMA_API void llama_perf_dump_yaml(FILE * stream, const struct llama_context * ctx);
 

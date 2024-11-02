@@ -3,6 +3,7 @@
 #endif
 
 #include "common.h"
+#include "log.h"
 // Change JSON_ASSERT from assert() to GGML_ASSERT:
 #define JSON_ASSERT GGML_ASSERT
 #include "json.hpp"
@@ -25,6 +26,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <thread>
 
 #if defined(__APPLE__) && defined(__MACH__)
 #include <sys/types.h>
@@ -48,20 +50,11 @@
 #if defined(LLAMA_USE_CURL)
 #include <curl/curl.h>
 #include <curl/easy.h>
-#include <thread>
 #include <future>
 #endif
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244 4267) // possible loss of data
-#endif
-
-#if (defined(GGML_USE_CUDA) || defined(GGML_USE_SYCL))
-#define GGML_USE_CUDA_SYCL
-#endif
-
-#if (defined(GGML_USE_CUDA) || defined(GGML_USE_SYCL)) || defined(GGML_USE_VULKAN)
-#define GGML_USE_CUDA_SYCL_VULKAN
 #endif
 
 #if defined(LLAMA_USE_CURL)
@@ -234,7 +227,7 @@ bool set_process_priority(enum ggml_sched_priority prio) {
     }
 
     if (!SetPriorityClass(GetCurrentProcess(), p)) {
-        fprintf(stderr, "warn: failed to set process priority class %d : (%d)\n", prio, (int) GetLastError());
+        LOG_WRN("failed to set process priority class %d : (%d)\n", prio, (int) GetLastError());
         return false;
     }
 
@@ -259,7 +252,7 @@ bool set_process_priority(enum ggml_sched_priority prio) {
     }
 
     if (!setpriority(PRIO_PROCESS, 0, p)) {
-        fprintf(stderr, "warn: failed to set process priority %d : %s (%d)\n", prio, strerror(errno), errno);
+        LOG_WRN("failed to set process priority %d : %s (%d)\n", prio, strerror(errno), errno);
         return false;
     }
     return true;
@@ -292,14 +285,14 @@ void postprocess_cpu_params(cpu_params& cpuparams, const cpu_params* role_model)
 
     if (n_set && n_set < cpuparams.n_threads) {
         // Not enough set bits, may experience performance issues.
-        fprintf(stderr, "warn: Not enough set bits in CPU mask (%d) to satisfy requested thread count: %d\n", n_set, cpuparams.n_threads);
+        LOG_WRN("Not enough set bits in CPU mask (%d) to satisfy requested thread count: %d\n", n_set, cpuparams.n_threads);
     }
 }
 
 bool parse_cpu_range(const std::string & range, bool (&boolmask)[GGML_MAX_N_THREADS]) {
     size_t dash_loc = range.find('-');
     if (dash_loc == std::string::npos) {
-        fprintf(stderr, "Format of CPU range is invalid! Expected [<start>]-[<end>].\n");
+        LOG_ERR("Format of CPU range is invalid! Expected [<start>]-[<end>].\n");
         return false;
     }
 
@@ -311,7 +304,7 @@ bool parse_cpu_range(const std::string & range, bool (&boolmask)[GGML_MAX_N_THRE
     } else {
         start_i = std::stoull(range.substr(0, dash_loc));
         if (start_i >= GGML_MAX_N_THREADS) {
-            fprintf(stderr, "Start index out of bounds!\n");
+            LOG_ERR("Start index out of bounds!\n");
             return false;
         }
     }
@@ -321,7 +314,7 @@ bool parse_cpu_range(const std::string & range, bool (&boolmask)[GGML_MAX_N_THRE
     } else {
         end_i = std::stoull(range.substr(dash_loc + 1));
         if (end_i >= GGML_MAX_N_THREADS) {
-            fprintf(stderr, "End index out of bounds!\n");
+            LOG_ERR("End index out of bounds!\n");
             return false;
         }
     }
@@ -356,7 +349,7 @@ bool parse_cpu_mask(const std::string & mask, bool (&boolmask)[GGML_MAX_N_THREAD
         } else if (c >= 'A' && c <= 'F') {
             id -= 'A' - 10;
         } else {
-            fprintf(stderr, "Invalid hex character '%c' at position %d\n", c, int32_t(i));
+            LOG_ERR("Invalid hex character '%c' at position %d\n", c, int32_t(i));
             return false;
         }
 
@@ -367,6 +360,22 @@ bool parse_cpu_mask(const std::string & mask, bool (&boolmask)[GGML_MAX_N_THREAD
     }
 
     return true;
+}
+
+void gpt_init() {
+    llama_log_set([](ggml_log_level level, const char * text, void * /*user_data*/) {
+        if (LOG_DEFAULT_LLAMA <= gpt_log_verbosity_thold) {
+            gpt_log_add(gpt_log_main(), level, "%s", text);
+        }
+    }, NULL);
+
+#ifdef NDEBUG
+    const char * build_type = "";
+#else
+    const char * build_type = " (debug)";
+#endif
+
+    LOG_INF("build: %d (%s) with %s for %s%s\n", LLAMA_BUILD_NUMBER, LLAMA_COMMIT, LLAMA_COMPILER, LLAMA_BUILD_TARGET, build_type);
 }
 
 std::string gpt_params_get_system_info(const gpt_params & params) {
@@ -449,6 +458,94 @@ void string_replace_all(std::string & s, const std::string & search, const std::
     s = std::move(builder);
 }
 
+std::string string_from(bool value) {
+    return value ? "true" : "false";
+}
+
+std::string string_from(const std::vector<int> & values) {
+    std::stringstream buf;
+
+    buf << "[ ";
+    bool first = true;
+    for (auto e : values) {
+        if (first) {
+            first = false;
+        } else {
+            buf << ", ";
+        }
+        buf << std::to_string(e);
+    }
+    buf << " ]";
+
+    return buf.str();
+}
+
+std::string string_from(const struct llama_context * ctx, const std::vector<llama_token> & tokens) {
+    std::stringstream buf;
+
+    buf << "[ ";
+
+    bool first = true;
+    for (const auto & token : tokens) {
+        if (!first) {
+            buf << ", ";
+        } else {
+            first = false;
+        }
+
+        auto detokenized = llama_token_to_piece(ctx, token);
+
+        detokenized.erase(
+            std::remove_if(
+                detokenized.begin(),
+                detokenized.end(),
+                [](const unsigned char c) { return !std::isprint(c); }),
+            detokenized.end());
+
+        buf << "'" << detokenized << "'"
+            << ":" << std::to_string(token);
+    }
+
+    buf << " ]";
+
+    return buf.str();
+}
+
+std::string string_from(const struct llama_context * ctx, const struct llama_batch & batch) {
+    std::stringstream buf;
+
+    buf << "[ ";
+
+    bool first = true;
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        if (!first) {
+            buf << ", ";
+        } else {
+            first = false;
+        }
+
+        auto detokenized = llama_token_to_piece(ctx, batch.token[i]);
+
+        detokenized.erase(
+                std::remove_if(
+                    detokenized.begin(),
+                    detokenized.end(),
+                    [](const unsigned char c) { return !std::isprint(c); }),
+                detokenized.end());
+
+        buf << "\n" << std::to_string(i)
+            << ":token '" << detokenized << "'"
+            << ":pos " << std::to_string(batch.pos[i])
+            << ":n_seq_id  " << std::to_string(batch.n_seq_id[i])
+            << ":seq_id " << std::to_string(batch.seq_id[i][0])
+            << ":logits " << std::to_string(batch.logits[i]);
+    }
+
+    buf << " ]";
+
+    return buf.str();
+}
+
 void string_process_escapes(std::string & input) {
     std::size_t input_len = input.length();
     std::size_t output_idx = 0;
@@ -489,7 +586,7 @@ void string_process_escapes(std::string & input) {
 bool string_parse_kv_override(const char * data, std::vector<llama_model_kv_override> & overrides) {
     const char * sep = strchr(data, '=');
     if (sep == nullptr || sep - data >= 128) {
-        fprintf(stderr, "%s: malformed KV override '%s'\n", __func__, data);
+        LOG_ERR("%s: malformed KV override '%s'\n", __func__, data);
         return false;
     }
     llama_model_kv_override kvo;
@@ -512,20 +609,20 @@ bool string_parse_kv_override(const char * data, std::vector<llama_model_kv_over
         } else if (std::strcmp(sep, "false") == 0) {
             kvo.val_bool = false;
         } else {
-            fprintf(stderr, "%s: invalid boolean value for KV override '%s'\n", __func__, data);
+            LOG_ERR("%s: invalid boolean value for KV override '%s'\n", __func__, data);
             return false;
         }
     } else if (strncmp(sep, "str:", 4) == 0) {
         sep += 4;
         kvo.tag = LLAMA_KV_OVERRIDE_TYPE_STR;
         if (strlen(sep) > 127) {
-            fprintf(stderr, "%s: malformed KV override '%s', value cannot exceed 127 chars\n", __func__, data);
+            LOG_ERR("%s: malformed KV override '%s', value cannot exceed 127 chars\n", __func__, data);
             return false;
         }
         strncpy(kvo.val_str, sep, 127);
         kvo.val_str[127] = '\0';
     } else {
-        fprintf(stderr, "%s: invalid type for KV override '%s'\n", __func__, data);
+        LOG_ERR("%s: invalid type for KV override '%s'\n", __func__, data);
         return false;
     }
     overrides.emplace_back(std::move(kvo));
@@ -737,7 +834,7 @@ struct llama_init_result llama_init_from_gpt_params(gpt_params & params) {
     }
 
     if (model == NULL) {
-        fprintf(stderr, "%s: error: failed to load model '%s'\n", __func__, params.model.c_str());
+        LOG_ERR("%s: failed to load model '%s'\n", __func__, params.model.c_str());
         return iparams;
     }
 
@@ -745,7 +842,7 @@ struct llama_init_result llama_init_from_gpt_params(gpt_params & params) {
 
     llama_context * lctx = llama_new_context_with_model(model, cparams);
     if (lctx == NULL) {
-        fprintf(stderr, "%s: error: failed to create context with model '%s'\n", __func__, params.model.c_str());
+        LOG_ERR("%s: failed to create context with model '%s'\n", __func__, params.model.c_str());
         llama_free_model(model);
         return iparams;
     }
@@ -781,7 +878,7 @@ struct llama_init_result llama_init_from_gpt_params(gpt_params & params) {
         loaded_la.scale = la.scale;
         loaded_la.adapter = llama_lora_adapter_init(model, la.path.c_str());
         if (loaded_la.adapter == nullptr) {
-            fprintf(stderr, "%s: error: failed to apply lora adapter '%s'\n", __func__, la.path.c_str());
+            LOG_ERR("%s: failed to apply lora adapter '%s'\n", __func__, la.path.c_str());
             llama_free(lctx);
             llama_free_model(model);
             return iparams;
@@ -793,12 +890,12 @@ struct llama_init_result llama_init_from_gpt_params(gpt_params & params) {
     }
 
     if (params.sparams.ignore_eos && llama_token_eos(model) == -1) {
-        fprintf(stderr, "%s: warning: model does not have an EOS token, ignoring --ignore-eos\n", __func__);
+        LOG_WRN("%s: warning: model does not have an EOS token, ignoring --ignore-eos\n", __func__);
         params.sparams.ignore_eos = false;
     }
 
     if (params.warmup) {
-        LOG("warming up the model with an empty run\n");
+        LOG_WRN("%s: warming up the model with an empty run - please wait ... (--no-warmup to disable)\n", __func__);
 
         std::vector<llama_token> tmp;
         llama_token bos = llama_token_bos(model);
@@ -828,7 +925,7 @@ struct llama_init_result llama_init_from_gpt_params(gpt_params & params) {
         }
         llama_kv_cache_clear(lctx);
         llama_synchronize(lctx);
-        llama_perf_reset(lctx, LLAMA_PERF_TYPE_CONTEXT);
+        llama_perf_context_reset(lctx);
     }
 
     iparams.model   = model;
@@ -924,6 +1021,12 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.cb_eval_user_data = params.cb_eval_user_data;
     cparams.offload_kqv       = !params.no_kv_offload;
     cparams.flash_attn        = params.flash_attn;
+    cparams.no_perf           = params.no_perf;
+
+    if (params.reranking) {
+        cparams.embeddings    = true;
+        cparams.pooling_type  = LLAMA_POOLING_TYPE_RANK;
+    }
 
     cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
     cparams.type_v = kv_cache_type_from_str(params.cache_type_v);
@@ -949,9 +1052,36 @@ struct ggml_threadpool_params ggml_threadpool_params_from_cpu_params(const cpu_p
 
 #ifdef LLAMA_USE_CURL
 
+#define CURL_MAX_RETRY 3
+#define CURL_RETRY_DELAY_SECONDS 2
+
+
 static bool starts_with(const std::string & str, const std::string & prefix) {
     // While we wait for C++20's std::string::starts_with...
     return str.rfind(prefix, 0) == 0;
+}
+
+static bool curl_perform_with_retry(const std::string& url, CURL* curl, int max_attempts, int retry_delay_seconds) {
+    int remaining_attempts = max_attempts;
+
+    while (remaining_attempts > 0) {
+        LOG_INF("%s: Trying to download from %s (attempt %d of %d)...\n", __func__ , url.c_str(), max_attempts - remaining_attempts + 1, max_attempts);
+
+        CURLcode res = curl_easy_perform(curl);
+        if (res == CURLE_OK) {
+            return true;
+        }
+
+        int exponential_backoff_delay = std::pow(retry_delay_seconds, max_attempts - remaining_attempts) * 1000;
+        LOG_WRN("%s: curl_easy_perform() failed: %s, retrying after %d milliseconds...\n", __func__, curl_easy_strerror(res), exponential_backoff_delay);
+
+        remaining_attempts--;
+        std::this_thread::sleep_for(std::chrono::milliseconds(exponential_backoff_delay));
+    }
+
+    LOG_ERR("%s: curl_easy_perform() failed after %d attempts\n", __func__, max_attempts);
+
+    return false;
 }
 
 static bool llama_download_file(const std::string & url, const std::string & path, const std::string & hf_token) {
@@ -959,7 +1089,7 @@ static bool llama_download_file(const std::string & url, const std::string & pat
     // Initialize libcurl
     std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl(curl_easy_init(), &curl_easy_cleanup);
     if (!curl) {
-        fprintf(stderr, "%s: error initializing libcurl\n", __func__);
+        LOG_ERR("%s: error initializing libcurl\n", __func__);
         return false;
     }
 
@@ -1000,11 +1130,11 @@ static bool llama_download_file(const std::string & url, const std::string & pat
         if (metadata_in.good()) {
             try {
                 metadata_in >> metadata;
-                fprintf(stderr, "%s: previous metadata file found %s: %s\n", __func__, metadata_path.c_str(), metadata.dump().c_str());
+                LOG_INF("%s: previous metadata file found %s: %s\n", __func__, metadata_path.c_str(), metadata.dump().c_str());
                 if (metadata.contains("url") && metadata.at("url").is_string()) {
                     auto previous_url = metadata.at("url").get<std::string>();
                     if (previous_url != url) {
-                        fprintf(stderr, "%s: Model URL mismatch: %s != %s\n", __func__, url.c_str(), previous_url.c_str());
+                        LOG_ERR("%s: Model URL mismatch: %s != %s\n", __func__, url.c_str(), previous_url.c_str());
                         return false;
                     }
                 }
@@ -1015,12 +1145,12 @@ static bool llama_download_file(const std::string & url, const std::string & pat
                     last_modified = metadata.at("lastModified");
                 }
             } catch (const nlohmann::json::exception & e) {
-                fprintf(stderr, "%s: error reading metadata file %s: %s\n", __func__, metadata_path.c_str(), e.what());
+            LOG_ERR("%s: error reading metadata file %s: %s\n", __func__, metadata_path.c_str(), e.what());
                 return false;
             }
         }
     } else {
-        fprintf(stderr, "%s: no previous model file found %s\n", __func__, path.c_str());
+        LOG_INF("%s: no previous model file found %s\n", __func__, path.c_str());
     }
 
     // Send a HEAD request to retrieve the etag and last-modified headers
@@ -1057,9 +1187,8 @@ static bool llama_download_file(const std::string & url, const std::string & pat
         curl_easy_setopt(curl.get(), CURLOPT_HEADERFUNCTION, static_cast<CURLOPT_HEADERFUNCTION_PTR>(header_callback));
         curl_easy_setopt(curl.get(), CURLOPT_HEADERDATA, &headers);
 
-        CURLcode res = curl_easy_perform(curl.get());
-        if (res != CURLE_OK) {
-            fprintf(stderr, "%s: curl_easy_perform() failed: %s\n", __func__, curl_easy_strerror(res));
+        bool was_perform_successful = curl_perform_with_retry(url, curl.get(), CURL_MAX_RETRY, CURL_RETRY_DELAY_SECONDS);
+        if (!was_perform_successful) {
             return false;
         }
 
@@ -1069,26 +1198,26 @@ static bool llama_download_file(const std::string & url, const std::string & pat
             // HEAD not supported, we don't know if the file has changed
             // force trigger downloading
             force_download = true;
-            fprintf(stderr, "%s: HEAD invalid http status code received: %ld\n", __func__, http_code);
+            LOG_ERR("%s: HEAD invalid http status code received: %ld\n", __func__, http_code);
         }
     }
 
     bool should_download = !file_exists || force_download;
     if (!should_download) {
         if (!etag.empty() && etag != headers.etag) {
-            fprintf(stderr, "%s: ETag header is different (%s != %s): triggering a new download\n", __func__, etag.c_str(), headers.etag.c_str());
+            LOG_WRN("%s: ETag header is different (%s != %s): triggering a new download\n", __func__, etag.c_str(), headers.etag.c_str());
             should_download = true;
         } else if (!last_modified.empty() && last_modified != headers.last_modified) {
-            fprintf(stderr, "%s: Last-Modified header is different (%s != %s): triggering a new download\n", __func__, last_modified.c_str(), headers.last_modified.c_str());
+            LOG_WRN("%s: Last-Modified header is different (%s != %s): triggering a new download\n", __func__, last_modified.c_str(), headers.last_modified.c_str());
             should_download = true;
         }
     }
     if (should_download) {
         std::string path_temporary = path + ".downloadInProgress";
         if (file_exists) {
-            fprintf(stderr, "%s: deleting previous downloaded file: %s\n", __func__, path.c_str());
+            LOG_WRN("%s: deleting previous downloaded file: %s\n", __func__, path.c_str());
             if (remove(path.c_str()) != 0) {
-                fprintf(stderr, "%s: unable to delete file: %s\n", __func__, path.c_str());
+                LOG_ERR("%s: unable to delete file: %s\n", __func__, path.c_str());
                 return false;
             }
         }
@@ -1103,7 +1232,7 @@ static bool llama_download_file(const std::string & url, const std::string & pat
 
         std::unique_ptr<FILE, FILE_deleter> outfile(fopen(path_temporary.c_str(), "wb"));
         if (!outfile) {
-            fprintf(stderr, "%s: error opening local file for writing: %s\n", __func__, path.c_str());
+            LOG_ERR("%s: error opening local file for writing: %s\n", __func__, path.c_str());
             return false;
         }
 
@@ -1134,18 +1263,17 @@ static bool llama_download_file(const std::string & url, const std::string & pat
         };
 
         // start the download
-        fprintf(stderr, "%s: downloading from %s to %s (server_etag:%s, server_last_modified:%s)...\n", __func__,
-                llama_download_hide_password_in_url(url).c_str(), path.c_str(), headers.etag.c_str(), headers.last_modified.c_str());
-        auto res = curl_easy_perform(curl.get());
-        if (res != CURLE_OK) {
-            fprintf(stderr, "%s: curl_easy_perform() failed: %s\n", __func__, curl_easy_strerror(res));
+        LOG_INF("%s: trying to download model from %s to %s (server_etag:%s, server_last_modified:%s)...\n", __func__,
+            llama_download_hide_password_in_url(url).c_str(), path.c_str(), headers.etag.c_str(), headers.last_modified.c_str());
+        bool was_perform_successful = curl_perform_with_retry(url, curl.get(), CURL_MAX_RETRY, CURL_RETRY_DELAY_SECONDS);
+        if (!was_perform_successful) {
             return false;
         }
 
         long http_code = 0;
         curl_easy_getinfo (curl.get(), CURLINFO_RESPONSE_CODE, &http_code);
         if (http_code < 200 || http_code >= 400) {
-            fprintf(stderr, "%s: invalid http status code received: %ld\n", __func__, http_code);
+            LOG_ERR("%s: invalid http status code received: %ld\n", __func__, http_code);
             return false;
         }
 
@@ -1159,10 +1287,10 @@ static bool llama_download_file(const std::string & url, const std::string & pat
             {"lastModified", headers.last_modified}
         });
         std::ofstream(metadata_path) << metadata.dump(4);
-        fprintf(stderr, "%s: file metadata saved: %s\n", __func__, metadata_path.c_str());
+        LOG_INF("%s: file metadata saved: %s\n", __func__, metadata_path.c_str());
 
         if (rename(path_temporary.c_str(), path.c_str()) != 0) {
-            fprintf(stderr, "%s: unable to rename file: %s to %s\n", __func__, path_temporary.c_str(), path.c_str());
+            LOG_ERR("%s: unable to rename file: %s to %s\n", __func__, path_temporary.c_str(), path.c_str());
             return false;
         }
     }
@@ -1177,7 +1305,7 @@ struct llama_model * llama_load_model_from_url(
         const struct llama_model_params & params) {
     // Basic validation of the model_url
     if (!model_url || strlen(model_url) == 0) {
-        fprintf(stderr, "%s: invalid model_url\n", __func__);
+        LOG_ERR("%s: invalid model_url\n", __func__);
         return NULL;
     }
 
@@ -1194,7 +1322,7 @@ struct llama_model * llama_load_model_from_url(
         };
         auto * ctx_gguf = gguf_init_from_file(path_model, gguf_params);
         if (!ctx_gguf) {
-            fprintf(stderr, "\n%s:  failed to load input GGUF from %s\n", __func__, path_model);
+            LOG_ERR("\n%s:  failed to load input GGUF from %s\n", __func__, path_model);
             return NULL;
         }
 
@@ -1214,14 +1342,12 @@ struct llama_model * llama_load_model_from_url(
         // and extract split URL and PATH prefixes
         {
             if (!llama_split_prefix(split_prefix, sizeof(split_prefix), path_model, 0, n_split)) {
-                fprintf(stderr, "\n%s: unexpected model file name: %s"
-                                " n_split=%d\n", __func__, path_model, n_split);
+                LOG_ERR("\n%s: unexpected model file name: %s n_split=%d\n", __func__, path_model, n_split);
                 return NULL;
             }
 
             if (!llama_split_prefix(split_url_prefix, sizeof(split_url_prefix), model_url, 0, n_split)) {
-                fprintf(stderr, "\n%s: unexpected model url: %s"
-                                " n_split=%d\n", __func__, model_url, n_split);
+                LOG_ERR("\n%s: unexpected model url: %s n_split=%d\n", __func__, model_url, n_split);
                 return NULL;
             }
         }
@@ -1281,7 +1407,7 @@ struct llama_model * llama_load_model_from_url(
         const char * /*path_model*/,
         const char * /*hf_token*/,
         const struct llama_model_params & /*params*/) {
-    fprintf(stderr, "%s: llama.cpp built without libcurl, downloading from an url not supported.\n", __func__);
+    LOG_WRN("%s: llama.cpp built without libcurl, downloading from an url not supported.\n", __func__);
     return nullptr;
 }
 
@@ -1291,7 +1417,7 @@ struct llama_model * llama_load_model_from_hf(
         const char * /*path_model*/,
         const char * /*hf_token*/,
         const struct llama_model_params & /*params*/) {
-    fprintf(stderr, "%s: llama.cpp built without libcurl, downloading from Hugging Face not supported.\n", __func__);
+    LOG_WRN("%s: llama.cpp built without libcurl, downloading from Hugging Face not supported.\n", __func__);
     return nullptr;
 }
 
@@ -1311,6 +1437,8 @@ void llama_batch_add(
                           llama_pos   pos,
     const std::vector<llama_seq_id> & seq_ids,
                                bool   logits) {
+    GGML_ASSERT(batch.seq_id[batch.n_tokens] && "llama_batch size exceeded");
+
     batch.token   [batch.n_tokens] = id;
     batch.pos     [batch.n_tokens] = pos;
     batch.n_seq_id[batch.n_tokens] = seq_ids.size();
@@ -1619,13 +1747,13 @@ static llama_control_vector_data llama_control_vector_load_one(const llama_contr
     };
     struct gguf_context * ctx_gguf = gguf_init_from_file(load_info.fname.c_str(), meta_gguf_params);
     if (!ctx_gguf) {
-        fprintf(stderr, "%s: failed to load control vector file from %s\n", __func__, load_info.fname.c_str());
+        LOG_ERR("%s: failed to load control vector file from %s\n", __func__, load_info.fname.c_str());
         return result;
     }
 
     int32_t n_tensors = gguf_get_n_tensors(ctx_gguf);
     if (n_tensors == 0) {
-        fprintf(stderr, "%s: no direction tensors found in %s\n", __func__, load_info.fname.c_str());
+        LOG_WRN("%s: no direction tensors found in %s\n", __func__, load_info.fname.c_str());
     }
 
     for (int i = 0; i < n_tensors; i++) {
@@ -1643,23 +1771,23 @@ static llama_control_vector_data llama_control_vector_load_one(const llama_contr
             }
         }
         if (layer_idx < 0) {
-            fprintf(stderr, "%s: invalid/unparsable direction tensor layer index in %s\n", __func__, load_info.fname.c_str());
+            LOG_ERR("%s: invalid/unparsable direction tensor layer index in %s\n", __func__, load_info.fname.c_str());
             result.n_embd = -1;
             break;
         } else if (layer_idx == 0) {
-            fprintf(stderr, "%s: invalid (zero) direction tensor layer index in %s\n", __func__, load_info.fname.c_str());
+            LOG_ERR("%s: invalid (zero) direction tensor layer index in %s\n", __func__, load_info.fname.c_str());
             result.n_embd = -1;
             break;
         }
 
         struct ggml_tensor * tensor = ggml_get_tensor(ctx, name.c_str());
         if (tensor->type != GGML_TYPE_F32) {
-            fprintf(stderr, "%s: invalid (non-F32) direction tensor type in %s\n", __func__, load_info.fname.c_str());
+            LOG_ERR("%s: invalid (non-F32) direction tensor type in %s\n", __func__, load_info.fname.c_str());
             result.n_embd = -1;
             break;
         }
         if (ggml_n_dims(tensor) != 1) {
-            fprintf(stderr, "%s: invalid (non-1D) direction tensor shape in %s\n", __func__, load_info.fname.c_str());
+            LOG_ERR("%s: invalid (non-1D) direction tensor shape in %s\n", __func__, load_info.fname.c_str());
             result.n_embd = -1;
             break;
         }
@@ -1667,7 +1795,7 @@ static llama_control_vector_data llama_control_vector_load_one(const llama_contr
         if (result.n_embd == -1) {
             result.n_embd = ggml_nelements(tensor);
         } else if (ggml_nelements(tensor) != result.n_embd) {
-            fprintf(stderr, "%s: direction tensor in %s does not match previous dimensions\n", __func__, load_info.fname.c_str());
+            LOG_ERR("%s: direction tensor in %s does not match previous dimensions\n", __func__, load_info.fname.c_str());
             result.n_embd = -1;
             break;
         }
@@ -1684,7 +1812,7 @@ static llama_control_vector_data llama_control_vector_load_one(const llama_contr
     }
 
     if (result.n_embd == -1) {
-        fprintf(stderr, "%s: skipping %s due to invalid direction tensors\n", __func__, load_info.fname.c_str());
+        LOG_WRN("%s: skipping %s due to invalid direction tensors\n", __func__, load_info.fname.c_str());
         result.data.clear();
     }
 
@@ -1705,7 +1833,7 @@ llama_control_vector_data llama_control_vector_load(const std::vector<llama_cont
             break;
         }
         if (result.n_embd != -1 && result.n_embd != cur.n_embd) {
-            fprintf(stderr, "%s: control vectors in %s does not match previous dimensions\n", __func__, info.fname.c_str());
+            LOG_ERR("%s: control vectors in %s does not match previous dimensions\n", __func__, info.fname.c_str());
             result.n_embd = -1;
             break;
         }
@@ -1721,7 +1849,7 @@ llama_control_vector_data llama_control_vector_load(const std::vector<llama_cont
     }
 
     if (result.n_embd == -1) {
-        fprintf(stderr, "%s: no valid control vector files passed\n", __func__);
+        LOG_ERR("%s: no valid control vector files passed\n", __func__);
         result.data.clear();
     }
 
@@ -1812,6 +1940,7 @@ void yaml_dump_non_result_info(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "cpu_has_sve: %s\n",         ggml_cpu_has_sve()         ? "true" : "false");
     fprintf(stream, "cpu_has_f16c: %s\n",        ggml_cpu_has_f16c()        ? "true" : "false");
     fprintf(stream, "cpu_has_fp16_va: %s\n",     ggml_cpu_has_fp16_va()     ? "true" : "false");
+    fprintf(stream, "cpu_has_riscv_v: %s\n",     ggml_cpu_has_riscv_v()     ? "true" : "false");
     fprintf(stream, "cpu_has_wasm_simd: %s\n",   ggml_cpu_has_wasm_simd()   ? "true" : "false");
     fprintf(stream, "cpu_has_blas: %s\n",        ggml_cpu_has_blas()        ? "true" : "false");
     fprintf(stream, "cpu_has_sse3: %s\n",        ggml_cpu_has_sse3()        ? "true" : "false");
@@ -1934,4 +2063,31 @@ void yaml_dump_non_result_info(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "typ_p: %f # default: 1.0\n", sparams.typ_p);
     fprintf(stream, "verbose_prompt: %s # default: false\n", params.verbose_prompt ? "true" : "false");
     fprintf(stream, "display_prompt: %s # default: true\n", params.display_prompt ? "true" : "false");
+}
+
+//  500 -> 00:05.000
+// 6000 -> 01:00.000
+std::string to_timestamp(int64_t t, bool comma) {
+    int64_t msec = t * 10;
+    int64_t hr = msec / (1000 * 60 * 60);
+    msec = msec - hr * (1000 * 60 * 60);
+    int64_t min = msec / (1000 * 60);
+    msec = msec - min * (1000 * 60);
+    int64_t sec = msec / 1000;
+    msec = msec - sec * 1000;
+
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%02d:%02d:%02d%s%03d", (int) hr, (int) min, (int) sec, comma ? "," : ".", (int) msec);
+
+    return std::string(buf);
+}
+
+int timestamp_to_sample(int64_t t, int n_samples, int whisper_sample_rate) {
+    return std::max(0, std::min((int) n_samples - 1, (int) ((t*whisper_sample_rate)/100)));
+}
+
+bool is_file_exist(const char *fileName)
+{
+    std::ifstream infile(fileName);
+    return infile.good();
 }

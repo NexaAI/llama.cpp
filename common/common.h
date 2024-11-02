@@ -4,11 +4,9 @@
 
 #include "llama.h"
 
-#define LOG_NO_FILE_LINE_FUNCTION
-#include "log.h"
-
 #include <string>
 #include <vector>
+#include <sstream>
 
 #ifdef _WIN32
 #define DIRECTORY_SEPARATOR '\\'
@@ -124,6 +122,7 @@ struct gpt_sampler_params {
     float   mirostat_eta      = 0.10f; // learning rate
     bool    penalize_nl       = false; // consider newlines as a repeatable token
     bool    ignore_eos        = false;
+    bool    no_perf           = false; // disable performance metrics
 
     std::vector<enum gpt_sampler_type> samplers = {
         GPT_SAMPLER_TYPE_TOP_K,
@@ -246,6 +245,8 @@ struct gpt_params {
     bool simple_io         = false; // improves compatibility with subprocesses and limited consoles
     bool cont_batching     = true;  // insert new sequences for decoding on-the-fly
     bool flash_attn        = false; // flash attention
+    bool no_perf           = false; // disable performance metrics
+    bool ctx_shift         = true;  // context shift on inifinite text generation
 
     bool input_prefix_bos  = false; // prefix BOS to user inputs, preceding input_prefix
     bool logits_all        = false; // return logits for all tokens in the batch
@@ -270,6 +271,7 @@ struct gpt_params {
     int32_t embd_normalize = 2;     // normalisation for embendings (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm)
     std::string embd_out   = "";    // empty = default, "array" = [[],[]...], "json" = openai style, "json+" = same "json" + cosine similarity matrix
     std::string embd_sep   = "\n";  // separator of embendings
+    bool reranking         = false; // enable reranking support on server
 
     // server params
     int32_t port           = 8080;         // server listens on this network port
@@ -341,6 +343,10 @@ struct gpt_params {
     bool batched_bench_output_jsonl = false;
 };
 
+// call once at the start of a program if it uses libcommon
+// initializes the logging system and prints info about the build
+void gpt_init();
+
 std::string gpt_params_get_system_info(const gpt_params & params);
 
 bool parse_cpu_range(const std::string& range, bool(&boolmask)[GGML_MAX_N_THREADS]);
@@ -375,6 +381,11 @@ static std::vector<T> string_split(const std::string & str, char delim) {
 
 bool string_parse_kv_override(const char * data, std::vector<llama_model_kv_override> & overrides);
 void string_process_escapes(std::string & input);
+
+std::string string_from(bool value);
+std::string string_from(const std::vector<int> & values);
+std::string string_from(const struct llama_context * ctx, const std::vector<llama_token> & tokens);
+std::string string_from(const struct llama_context * ctx, const struct llama_batch & batch);
 
 //
 // Filesystem utils
@@ -542,3 +553,77 @@ void yaml_dump_string_multiline(FILE * stream, const char * prop_name, const cha
 void yaml_dump_non_result_info(
     FILE * stream, const gpt_params & params, const llama_context * lctx,
     const std::string & timestamp, const std::vector<int> & prompt_tokens, const char * model_desc);
+
+
+//
+// Terminal utils
+//
+
+#define SQR(X)    ((X) * (X))
+#define UNCUBE(x) x < 48 ? 0 : x < 115 ? 1 : (x - 35) / 40
+
+/**
+ * Quantizes 24-bit RGB to xterm256 code range [16,256).
+ */
+static int rgb2xterm256(int r, int g, int b) {
+    unsigned char cube[] = {0, 0137, 0207, 0257, 0327, 0377};
+    int av, ir, ig, ib, il, qr, qg, qb, ql;
+    av = r * .299 + g * .587 + b * .114 + .5;
+    ql = (il = av > 238 ? 23 : (av - 3) / 10) * 10 + 8;
+    qr = cube[(ir = UNCUBE(r))];
+    qg = cube[(ig = UNCUBE(g))];
+    qb = cube[(ib = UNCUBE(b))];
+    if (SQR(qr - r) + SQR(qg - g) + SQR(qb - b) <=
+        SQR(ql - r) + SQR(ql - g) + SQR(ql - b))
+        return ir * 36 + ig * 6 + ib + 020;
+    return il + 0350;
+}
+
+static std::string set_xterm256_foreground(int r, int g, int b) {
+    int x = rgb2xterm256(r, g, b);
+    std::ostringstream oss;
+    oss << "\033[38;5;" << x << "m";
+    return oss.str();
+}
+
+// Lowest is red, middle is yellow, highest is green. Color scheme from
+// Paul Tol; it is colorblind friendly https://personal.sron.nl/~pault/
+const std::vector<std::string> k_colors = {
+    set_xterm256_foreground(220,   5,  12),
+    set_xterm256_foreground(232,  96,  28),
+    set_xterm256_foreground(241, 147,  45),
+    set_xterm256_foreground(246, 193,  65),
+    set_xterm256_foreground(247, 240,  86),
+    set_xterm256_foreground(144, 201, 135),
+    set_xterm256_foreground( 78, 178, 101),
+};
+
+//
+// Audio utils
+//
+
+// Check if a buffer is a WAV audio file
+bool is_wav_buffer(const std::string buf);
+
+// Read WAV audio file and store the PCM data into pcmf32
+// fname can be a buffer of WAV data instead of a filename
+// The sample rate of the audio must be equal to COMMON_SAMPLE_RATE
+// If stereo flag is set and the audio has 2 channels, the pcmf32s will contain 2 channel PCM
+bool read_wav(
+        const std::string & fname,
+        std::vector<float> & pcmf32,
+        std::vector<std::vector<float>> & pcmf32s,
+        bool stereo);
+
+//
+// Other utils
+//
+
+// convert timestamp to string, 6000 -> 01:00.000
+std::string to_timestamp(int64_t t, bool comma = false);
+
+// given a timestamp get the sample
+int timestamp_to_sample(int64_t t, int n_samples, int whisper_sample_rate);
+
+// check if file exists using ifstream
+bool is_file_exist(const char *fileName);

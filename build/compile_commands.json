@@ -1,0 +1,194 @@
+[
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/ggml/src",
+  "command": "/usr/bin/cc -DGGML_BUILD -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_EXPORTS -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/. -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -march=native -fopenmp -o CMakeFiles/ggml.dir/ggml.c.o -c /home/azureuser/zack/llama.cpp/ggml/src/ggml.c",
+  "file": "/home/azureuser/zack/llama.cpp/ggml/src/ggml.c",
+  "output": "ggml/src/CMakeFiles/ggml.dir/ggml.c.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/ggml/src",
+  "command": "/usr/bin/cc -DGGML_BUILD -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_EXPORTS -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/. -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -march=native -fopenmp -o CMakeFiles/ggml.dir/ggml-alloc.c.o -c /home/azureuser/zack/llama.cpp/ggml/src/ggml-alloc.c",
+  "file": "/home/azureuser/zack/llama.cpp/ggml/src/ggml-alloc.c",
+  "output": "ggml/src/CMakeFiles/ggml.dir/ggml-alloc.c.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/ggml/src",
+  "command": "/usr/bin/cc -DGGML_BUILD -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_EXPORTS -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/. -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -march=native -fopenmp -o CMakeFiles/ggml.dir/ggml-backend.c.o -c /home/azureuser/zack/llama.cpp/ggml/src/ggml-backend.c",
+  "file": "/home/azureuser/zack/llama.cpp/ggml/src/ggml-backend.c",
+  "output": "ggml/src/CMakeFiles/ggml.dir/ggml-backend.c.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/ggml/src",
+  "command": "/usr/bin/cc -DGGML_BUILD -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_EXPORTS -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/. -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -march=native -fopenmp -o CMakeFiles/ggml.dir/ggml-quants.c.o -c /home/azureuser/zack/llama.cpp/ggml/src/ggml-quants.c",
+  "file": "/home/azureuser/zack/llama.cpp/ggml/src/ggml-quants.c",
+  "output": "ggml/src/CMakeFiles/ggml.dir/ggml-quants.c.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/ggml/src",
+  "command": "/usr/bin/c++ -DGGML_BUILD -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_EXPORTS -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/. -O3 -DNDEBUG -std=gnu++11 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wno-format-truncation -Wextra-semi -march=native -fopenmp -o CMakeFiles/ggml.dir/llamafile/sgemm.cpp.o -c /home/azureuser/zack/llama.cpp/ggml/src/llamafile/sgemm.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/ggml/src/llamafile/sgemm.cpp",
+  "output": "ggml/src/CMakeFiles/ggml.dir/llamafile/sgemm.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/ggml/src",
+  "command": "/usr/bin/cc -DGGML_BUILD -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_EXPORTS -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/. -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -march=native -fopenmp -o CMakeFiles/ggml.dir/ggml-aarch64.c.o -c /home/azureuser/zack/llama.cpp/ggml/src/ggml-aarch64.c",
+  "file": "/home/azureuser/zack/llama.cpp/ggml/src/ggml-aarch64.c",
+  "output": "ggml/src/CMakeFiles/ggml.dir/ggml-aarch64.c.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/src",
+  "command": "/usr/bin/c++ -DLLAMA_BUILD -DLLAMA_SHARED -Dllama_EXPORTS -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/llama.dir/llama.cpp.o -c /home/azureuser/zack/llama.cpp/src/llama.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/src/llama.cpp",
+  "output": "src/CMakeFiles/llama.dir/llama.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/src",
+  "command": "/usr/bin/c++ -DLLAMA_BUILD -DLLAMA_SHARED -Dllama_EXPORTS -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/llama.dir/llama-vocab.cpp.o -c /home/azureuser/zack/llama.cpp/src/llama-vocab.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/src/llama-vocab.cpp",
+  "output": "src/CMakeFiles/llama.dir/llama-vocab.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/src",
+  "command": "/usr/bin/c++ -DLLAMA_BUILD -DLLAMA_SHARED -Dllama_EXPORTS -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/llama.dir/llama-grammar.cpp.o -c /home/azureuser/zack/llama.cpp/src/llama-grammar.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/src/llama-grammar.cpp",
+  "output": "src/CMakeFiles/llama.dir/llama-grammar.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/src",
+  "command": "/usr/bin/c++ -DLLAMA_BUILD -DLLAMA_SHARED -Dllama_EXPORTS -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/llama.dir/llama-sampling.cpp.o -c /home/azureuser/zack/llama.cpp/src/llama-sampling.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/src/llama-sampling.cpp",
+  "output": "src/CMakeFiles/llama.dir/llama-sampling.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/src",
+  "command": "/usr/bin/c++ -DLLAMA_BUILD -DLLAMA_SHARED -Dllama_EXPORTS -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/llama.dir/unicode.cpp.o -c /home/azureuser/zack/llama.cpp/src/unicode.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/src/unicode.cpp",
+  "output": "src/CMakeFiles/llama.dir/unicode.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/src",
+  "command": "/usr/bin/c++ -DLLAMA_BUILD -DLLAMA_SHARED -Dllama_EXPORTS -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/llama.dir/unicode-data.cpp.o -c /home/azureuser/zack/llama.cpp/src/unicode-data.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/src/unicode-data.cpp",
+  "output": "src/CMakeFiles/llama.dir/unicode-data.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++   -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/build_info.dir/build-info.cpp.o -c /home/azureuser/zack/llama.cpp/common/build-info.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/build-info.cpp",
+  "output": "common/CMakeFiles/build_info.dir/build-info.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/arg.cpp.o -c /home/azureuser/zack/llama.cpp/common/arg.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/arg.cpp",
+  "output": "common/CMakeFiles/common.dir/arg.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/common.cpp.o -c /home/azureuser/zack/llama.cpp/common/common.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/common.cpp",
+  "output": "common/CMakeFiles/common.dir/common.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/common-nexa.cpp.o -c /home/azureuser/zack/llama.cpp/common/common-nexa.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/common-nexa.cpp",
+  "output": "common/CMakeFiles/common.dir/common-nexa.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/console.cpp.o -c /home/azureuser/zack/llama.cpp/common/console.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/console.cpp",
+  "output": "common/CMakeFiles/common.dir/console.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/json-schema-to-grammar.cpp.o -c /home/azureuser/zack/llama.cpp/common/json-schema-to-grammar.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/json-schema-to-grammar.cpp",
+  "output": "common/CMakeFiles/common.dir/json-schema-to-grammar.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/log.cpp.o -c /home/azureuser/zack/llama.cpp/common/log.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/log.cpp",
+  "output": "common/CMakeFiles/common.dir/log.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/ngram-cache.cpp.o -c /home/azureuser/zack/llama.cpp/common/ngram-cache.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/ngram-cache.cpp",
+  "output": "common/CMakeFiles/common.dir/ngram-cache.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/sampling.cpp.o -c /home/azureuser/zack/llama.cpp/common/sampling.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/sampling.cpp",
+  "output": "common/CMakeFiles/common.dir/sampling.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/common",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -I/home/azureuser/zack/llama.cpp/ggml/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/common.dir/train.cpp.o -c /home/azureuser/zack/llama.cpp/common/train.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/common/train.cpp",
+  "output": "common/CMakeFiles/common.dir/train.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/nano-omni-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-whisper-utils.dir/whisper.cpp.o -c /home/azureuser/zack/llama.cpp/examples/nano-omni-audio/whisper.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/nano-omni-audio/whisper.cpp",
+  "output": "examples/nano-omni-audio/CMakeFiles/nexa-whisper-utils.dir/whisper.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/nano-omni-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-whisper-utils.dir/grammar-parser.cpp.o -c /home/azureuser/zack/llama.cpp/examples/nano-omni-audio/grammar-parser.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/nano-omni-audio/grammar-parser.cpp",
+  "output": "examples/nano-omni-audio/CMakeFiles/nexa-whisper-utils.dir/grammar-parser.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/nano-omni-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-omni-audio-lib.dir/omni.cpp.o -c /home/azureuser/zack/llama.cpp/examples/nano-omni-audio/omni.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/nano-omni-audio/omni.cpp",
+  "output": "examples/nano-omni-audio/CMakeFiles/nexa-omni-audio-lib.dir/omni.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/nano-omni-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-omni-audio-lib.dir/audio-projector.cpp.o -c /home/azureuser/zack/llama.cpp/examples/nano-omni-audio/audio-projector.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/nano-omni-audio/audio-projector.cpp",
+  "output": "examples/nano-omni-audio/CMakeFiles/nexa-omni-audio-lib.dir/audio-projector.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/nano-omni-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles/nexa-omni-cli.dir/omni-cli.cpp.o -c /home/azureuser/zack/llama.cpp/examples/nano-omni-audio/omni-cli.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/nano-omni-audio/omni-cli.cpp",
+  "output": "examples/nano-omni-audio/CMakeFiles/nexa-omni-cli.dir/omni-cli.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/qwen2-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-whisper-utils-qwen2.dir/whisper.cpp.o -c /home/azureuser/zack/llama.cpp/examples/qwen2-audio/whisper.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/qwen2-audio/whisper.cpp",
+  "output": "examples/qwen2-audio/CMakeFiles/nexa-whisper-utils-qwen2.dir/whisper.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/qwen2-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-whisper-utils-qwen2.dir/grammar-parser.cpp.o -c /home/azureuser/zack/llama.cpp/examples/qwen2-audio/grammar-parser.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/qwen2-audio/grammar-parser.cpp",
+  "output": "examples/qwen2-audio/CMakeFiles/nexa-whisper-utils-qwen2.dir/grammar-parser.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/qwen2-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-qwen2-audio-lib.dir/qwen2audio.cpp.o -c /home/azureuser/zack/llama.cpp/examples/qwen2-audio/qwen2audio.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/qwen2-audio/qwen2audio.cpp",
+  "output": "examples/qwen2-audio/CMakeFiles/nexa-qwen2-audio-lib.dir/qwen2audio.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/qwen2-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -fPIC -o CMakeFiles/nexa-qwen2-audio-lib.dir/audio-projector.cpp.o -c /home/azureuser/zack/llama.cpp/examples/qwen2-audio/audio-projector.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/qwen2-audio/audio-projector.cpp",
+  "output": "examples/qwen2-audio/CMakeFiles/nexa-qwen2-audio-lib.dir/audio-projector.cpp.o"
+},
+{
+  "directory": "/home/azureuser/zack/llama.cpp/build/examples/qwen2-audio",
+  "command": "/usr/bin/c++  -I/home/azureuser/zack/llama.cpp/examples -I/home/azureuser/zack/llama.cpp/ggml/src/../include -I/home/azureuser/zack/llama.cpp/common/. -I/home/azureuser/zack/llama.cpp/src/. -I/home/azureuser/zack/llama.cpp/src/../include -O3 -DNDEBUG -std=gnu++17 -o CMakeFiles/nexa-qwen2-audio-cli.dir/qwen2audio-cli.cpp.o -c /home/azureuser/zack/llama.cpp/examples/qwen2-audio/qwen2audio-cli.cpp",
+  "file": "/home/azureuser/zack/llama.cpp/examples/qwen2-audio/qwen2audio-cli.cpp",
+  "output": "examples/qwen2-audio/CMakeFiles/nexa-qwen2-audio-cli.dir/qwen2audio-cli.cpp.o"
+}
+]

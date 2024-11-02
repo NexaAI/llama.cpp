@@ -1,13 +1,16 @@
 cmake_minimum_required(VERSION 3.14) # for add_link_options and implicit target directories.
-project("llama.cpp" C CXX)
+project("nexa-llama.cpp" C CXX)
 include(CheckIncludeFileCXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #set(CMAKE_WARN_DEPRECATED YES)
 set(CMAKE_WARN_UNUSED_CLI YES)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Enables the generation of a compile_commands.json file, useful for development tools.
 
-if (NOT XCODE AND NOT MSVC AND NOT CMAKE_BUILD_TYPE)
+if (NOT XCODE AND NOT MSVC AND NOT CMAKE_BUILD_TYPE) # If not using Xcode or MSVC and no build type is specified, set the default to Release.
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
@@ -17,8 +20,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    set(LLAMA_STANDALONE ON)
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR) # If this is the top-level project (not included as a subproject).
+    set(LLAMA_STANDALONE ON) # Mark the project as standalone.
 
     include(git-vars)
 
@@ -62,8 +65,10 @@ option(LLAMA_SANITIZE_THREAD    "llama: enable thread sanitizer"    OFF)
 option(LLAMA_SANITIZE_ADDRESS   "llama: enable address sanitizer"   OFF)
 option(LLAMA_SANITIZE_UNDEFINED "llama: enable undefined sanitizer" OFF)
 
+# utils
+option(LLAMA_BUILD_COMMON "llama: build common utils library" ON)
+
 # extra artifacts
-option(LLAMA_BUILD_TESTS    "llama: build tests"          ${LLAMA_STANDALONE})
 option(LLAMA_BUILD_EXAMPLES "llama: build examples"       ${LLAMA_STANDALONE})
 option(LLAMA_BUILD_SERVER   "llama: build server example" ${LLAMA_STANDALONE})
 
@@ -73,20 +78,20 @@ option(LLAMA_CURL "llama: use libcurl to download model from an URL" OFF)
 # Required for relocatable CMake package
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/build-info.cmake)
 
-# override ggml_llama options
+# override ggml options
 set(GGML_SANITIZE_THREAD    ${LLAMA_SANITIZE_THREAD})
 set(GGML_SANITIZE_ADDRESS   ${LLAMA_SANITIZE_ADDRESS})
 set(GGML_SANITIZE_UNDEFINED ${LLAMA_SANITIZE_UNDEFINED})
 set(GGML_ALL_WARNINGS       ${LLAMA_ALL_WARNINGS})
 set(GGML_FATAL_WARNINGS     ${LLAMA_FATAL_WARNINGS})
 
-# change the default for these ggml_llama options
+# change the default for these ggml options
 if (NOT DEFINED GGML_LLAMAFILE)
-    set(GGML_LLAMAFILE ON)
+    set(GGML_LLAMAFILE_DEFAULT ON)
 endif()
 
-if (NOT DEFINED GGML_CUDA_USE_GRAPHS)
-    set(GGML_CUDA_USE_GRAPHS ON)
+if (NOT DEFINED GGML_CUDA_GRAPHS)
+    set(GGML_CUDA_GRAPHS_DEFAULT ON)
 endif()
 
 # transition helpers
@@ -112,9 +117,11 @@ llama_option_depr(WARNING     LLAMA_CANN                GGML_CANN)
 # build the library
 #
 
-if (NOT TARGET ggml_llama)
-    add_subdirectory(ggml_llama)
-    # ... otherwise assume ggml_llama is added by a parent CMakeLists.txt
+# 1. If ggml hasn't been added as a target yet, it adds the ggml subdirectory. This will build ggml as part of the project.
+# 2. It then adds the src subdirectory, which contains the main llama.cpp code.
+if (NOT TARGET ggml)
+    add_subdirectory(ggml)
+    # ... otherwise assume ggml is added by a parent CMakeLists.txt
 endif()
 add_subdirectory(src)
 
@@ -139,11 +146,17 @@ set(LLAMA_BIN_INSTALL_DIR     ${CMAKE_INSTALL_BINDIR}     CACHE PATH "Location o
 # determining _precisely_ which defines are necessary for the llama-config
 # package.
 #
-get_target_property(GGML_DIRECTORY ggml_llama SOURCE_DIR)
+set(GGML_TRANSIENT_DEFINES)
+get_target_property(GGML_DIRECTORY ggml SOURCE_DIR)
 get_directory_property(GGML_DIR_DEFINES DIRECTORY ${GGML_DIRECTORY} COMPILE_DEFINITIONS)
-get_target_property(GGML_TARGET_DEFINES ggml_llama COMPILE_DEFINITIONS)
-set(GGML_TRANSIENT_DEFINES ${GGML_TARGET_DEFINES} ${GGML_DIR_DEFINES})
-get_target_property(GGML_LINK_LIBRARIES ggml_llama LINK_LIBRARIES)
+if (GGML_DIR_DEFINES)
+    list(APPEND GGML_TRANSIENT_DEFINES ${GGML_DIR_DEFINES})
+endif()
+get_target_property(GGML_TARGET_DEFINES ggml COMPILE_DEFINITIONS)
+if (GGML_TARGET_DEFINES)
+    list(APPEND GGML_TRANSIENT_DEFINES ${GGML_TARGET_DEFINES})
+endif()
+get_target_property(GGML_LINK_LIBRARIES ggml LINK_LIBRARIES)
 
 set_target_properties(llama PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/llama.h)
 install(TARGETS llama LIBRARY PUBLIC_HEADER)
@@ -185,17 +198,15 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/llama.pc"
         DESTINATION lib/pkgconfig)
 
 #
-# programs, examples and tests
+# utils, programs, examples and tests
 #
 
-add_subdirectory(common)
+#  If LLAMA_BUILD_COMMON is ON, it builds the common utilities.
+if (LLAMA_BUILD_COMMON)
+    add_subdirectory(common)
+endif()
 
-if (LLAMA_BUILD_TESTS AND NOT CMAKE_JS_VERSION)
-    include(CTest)
-    add_subdirectory(tests)
-endif ()
-
+#  If LLAMA_BUILD_EXAMPLES is ON, it builds the examples and proofs of concept (pocs).
 if (LLAMA_BUILD_EXAMPLES)
     add_subdirectory(examples)
-    add_subdirectory(pocs)
 endif()

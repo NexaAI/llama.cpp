@@ -132,12 +132,14 @@ class Model:
     def get_tensors(self) -> Iterator[tuple[str, Tensor]]:
         tensor_names_from_parts: set[str] = set()
 
-        if len(self.part_names) > 1:
+        index_name = "model.safetensors" if self.is_safetensors else "pytorch_model.bin"
+        index_name += ".index.json"
+        index_file = self.dir_model / index_name
+
+        if index_file.is_file():
             self.tensor_names = set()
-            index_name = "model.safetensors" if self.is_safetensors else "pytorch_model.bin"
-            index_name += ".index.json"
             logger.info(f"gguf: loading model weight map from '{index_name}'")
-            with open(self.dir_model / index_name, "r", encoding="utf-8") as f:
+            with open(index_file, "r", encoding="utf-8") as f:
                 index: dict[str, Any] = json.load(f)
                 weight_map = index.get("weight_map")
                 if weight_map is None or not isinstance(weight_map, dict):
@@ -145,6 +147,7 @@ class Model:
                 self.tensor_names.update(weight_map.keys())
         else:
             self.tensor_names = tensor_names_from_parts
+            weight_map = {}
 
         for part_name in self.part_names:
             logger.info(f"gguf: loading model part '{part_name}'")
@@ -171,9 +174,17 @@ class Model:
                             data = LazyTorchTensor.from_eager(data)
                     yield name, data
 
-        # only verify tensor name presence; it doesn't matter if they are not in the right files
-        if len(sym_diff := tensor_names_from_parts.symmetric_difference(self.tensor_names)) > 0:
-            raise ValueError(f"Mismatch between weight map and model parts for tensor names: {sym_diff}")
+        # verify tensor name presence and identify potentially missing files
+        if len(tensor_names_from_parts.symmetric_difference(self.tensor_names)) > 0:
+            missing = sorted(self.tensor_names.difference(tensor_names_from_parts))
+            extra = sorted(tensor_names_from_parts.difference(self.tensor_names))
+            missing_files = sorted(set(weight_map[n] for n in missing if n in weight_map))
+            if len(extra) == 0 and len(missing_files) > 0:
+                raise ValueError(f"Missing or incomplete model files: {missing_files}")
+            else:
+                raise ValueError("Mismatch between weight map and model parts for tensor names:\n"
+                                 f"Missing tensors: {missing}\n"
+                                 f"Extra tensors: {extra}")
 
     def format_tensor_name(self, key: gguf.MODEL_TENSOR, bid: int | None = None, suffix: str = ".weight") -> str:
         if key not in gguf.MODEL_TENSORS[self.model_arch]:
@@ -280,8 +291,13 @@ class Model:
                     bid = int(part)
                     break
 
-            for new_name, data in ((n, d.squeeze().numpy()) for n, d in self.modify_tensors(data_torch, name, bid)):
-                data: np.ndarray  # type hint
+            for new_name, data_torch in (self.modify_tensors(data_torch, name, bid)):
+                data = data_torch.squeeze().numpy()
+
+                # if data ends up empty, it means data_torch was a scalar tensor -> restore
+                if len(data.shape) == 0:
+                    data = data_torch.numpy()
+
                 n_dims = len(data.shape)
                 data_qtype: gguf.GGMLQuantizationType | bool = self.tensor_force_quant(name, new_name, bid, n_dims)
 
@@ -302,6 +318,8 @@ class Model:
                             gguf.MODEL_TENSOR.TIME_MIX_FIRST,
                             gguf.MODEL_TENSOR.TIME_MIX_W1,
                             gguf.MODEL_TENSOR.TIME_MIX_W2,
+                            gguf.MODEL_TENSOR.TIME_MIX_DECAY_W1,
+                            gguf.MODEL_TENSOR.TIME_MIX_DECAY_W2,
                         )
                     )
                     or not new_name.endswith(".weight")
@@ -579,6 +597,9 @@ class Model:
         if chkhsh == "a8594e3edff7c29c003940395316294b2c623e09894deebbc65f33f1515df79e":
             # ref: https://huggingface.co/databricks/dbrx-base
             res = "dbrx"
+        if chkhsh == "c7699093ba4255a91e702aa38a596aa81669f3525dae06c2953267dde580f448":
+            # ref: https://huggingface.co/jinaai/jina-reranker-v1-tiny-en
+            res = "jina-v1-en"
         if chkhsh == "0876d13b50744004aa9aeae05e7b0647eac9d801b5ba4668afc01e709c15e19f":
             # ref: https://huggingface.co/jinaai/jina-embeddings-v2-base-en
             res = "jina-v2-en"
@@ -624,6 +645,12 @@ class Model:
         if chkhsh == "4e2b24cc4770243d65a2c9ec19770a72f08cffc161adbb73fcbb6b7dd45a0aae":
             # ref: https://huggingface.co/LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct
             res = "exaone"
+        if chkhsh == "fcace8b9cac38ce847670c970cd5892031a753a1ef381abd1d9af00f713da085":
+            # ref: https://huggingface.co/microsoft/phi-2
+            res = "phi-2"
+        if chkhsh == "60824e3c0d9401f89943cbb2fff727f0e2d4c545ba4df2d6e4f09a6db0f5b450":
+            # ref: https://huggingface.co/facebook/chameleon-7b
+            res = "chameleon"
 
         if res is None:
             logger.warning("\n")
@@ -1482,7 +1509,7 @@ class StableLMModel(Model):
                 raise ValueError(f"Unprocessed norms: {norms}")
 
 
-@Model.register("LlamaForCausalLM", "MistralForCausalLM", "MixtralForCausalLM")
+@Model.register("LLaMAForCausalLM", "LlamaForCausalLM", "MistralForCausalLM", "MixtralForCausalLM")
 class LlamaModel(Model):
     model_arch = gguf.MODEL_ARCH.LLAMA
 
@@ -1834,6 +1861,60 @@ class MiniCPMModel(Model):
             data_torch = self._reverse_hf_permute(data_torch, n_head, n_kv_head)
 
         return [(self.map_tensor_name(name), data_torch)]
+
+
+@Model.register("MiniCPM3ForCausalLM")
+class MiniCPM3Model(Model):
+    model_arch = gguf.MODEL_ARCH.MINICPM3
+
+    def set_gguf_parameters(self):
+        hparams = self.hparams
+
+        rope_dims = hparams["qk_rope_head_dim"]
+
+        self.gguf_writer.add_file_type(self.ftype)
+        self.gguf_writer.add_context_length(hparams["max_position_embeddings"])
+        self.gguf_writer.add_embedding_length(hparams["hidden_size"])
+        self.gguf_writer.add_block_count(self.block_count)
+        self.gguf_writer.add_feed_forward_length(hparams["intermediate_size"])
+        self.gguf_writer.add_head_count(hparams["num_attention_heads"])
+        self.gguf_writer.add_head_count_kv(hparams["num_key_value_heads"])
+        self.gguf_writer.add_layer_norm_rms_eps(hparams["rms_norm_eps"])
+        self.gguf_writer.add_vocab_size(hparams["vocab_size"])
+        if "q_lora_rank" in hparams and hparams["q_lora_rank"] is not None:
+            self.gguf_writer.add_q_lora_rank(hparams["q_lora_rank"])
+        self.gguf_writer.add_kv_lora_rank(hparams["kv_lora_rank"])
+        self.gguf_writer.add_key_length(hparams["qk_nope_head_dim"] + hparams["qk_rope_head_dim"])
+        self.gguf_writer.add_rope_dimension_count(hparams["qk_rope_head_dim"])
+
+        rope_scaling = self.find_hparam(['rope_scaling'], True)
+        if rope_scaling is None:
+            return
+
+        long_factors = rope_scaling.get('long_factor', None)
+        short_factors = rope_scaling.get('short_factor', None)
+
+        if long_factors is None or short_factors is None:
+            raise KeyError('Missing the required key rope_scaling.long_factor or rope_scaling_short_factor')
+
+        if len(long_factors) != len(short_factors) or len(long_factors) != rope_dims / 2:
+            raise ValueError(f'The length of rope long and short factors must be {rope_dims / 2}')
+
+        self.gguf_writer.add_tensor(gguf.TENSOR_NAMES[gguf.MODEL_TENSOR.ROPE_FACTORS_LONG]  + ".weight", np.array(long_factors, dtype=np.float32))
+        self.gguf_writer.add_tensor(gguf.TENSOR_NAMES[gguf.MODEL_TENSOR.ROPE_FACTORS_SHORT] + ".weight", np.array(short_factors, dtype=np.float32))
+
+    def set_vocab(self):
+        self._set_vocab_llama_hf()
+
+    def _reverse_hf_permute(self, weights: Tensor, n_head: int, n_kv_head: int | None = None) -> Tensor:
+        if n_kv_head is not None and n_head != n_kv_head:
+            n_head //= n_kv_head
+
+        return (
+            weights.reshape(n_head, 2, weights.shape[0] // n_head // 2, *weights.shape[1:])
+            .swapaxes(1, 2)
+            .reshape(weights.shape)
+        )
 
 
 @Model.register("QWenLMHeadModel")
@@ -2528,7 +2609,7 @@ class NomicBertModel(BertModel):
         self.gguf_writer.add_rope_freq_base(self.hparams["rotary_emb_base"])
 
 
-@Model.register("XLMRobertaModel")
+@Model.register("XLMRobertaModel", "XLMRobertaForSequenceClassification")
 class XLMRobertaModel(BertModel):
     model_arch = gguf.MODEL_ARCH.BERT
 
@@ -2626,6 +2707,11 @@ class XLMRobertaModel(BertModel):
         self.gguf_writer.add_add_eos_token(True)
 
     def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None) -> Iterable[tuple[str, Tensor]]:
+        # if name starts with "roberta.", remove the prefix
+        # e.g. https://huggingface.co/BAAI/bge-reranker-v2-m3/tree/main
+        if name.startswith("roberta."):
+            name = name[8:]
+
         # position embeddings start at pad_token_id + 1, so just chop down the weight tensor
         if name == "embeddings.position_embeddings.weight":
             if self._position_offset is not None:
@@ -2769,6 +2855,8 @@ class Rwkv6Model(Model):
         self.gguf_writer.add_tokenizer_model("rwkv")
         self.gguf_writer.add_token_list(tokens)
         self.gguf_writer.add_token_types(toktypes)
+        special_vocab = gguf.SpecialVocab(self.dir_model, load_merges=False)
+        special_vocab.add_to_gguf(self.gguf_writer)
 
     def set_gguf_parameters(self):
         block_count = self.hparams["num_hidden_layers"]
@@ -2937,6 +3025,66 @@ class OlmoModel(Model):
         return [(self.map_tensor_name(name), data_torch)]
 
 
+@Model.register("OlmoeForCausalLM")
+class OlmoeModel(Model):
+    model_arch = gguf.MODEL_ARCH.OLMOE
+
+    def set_gguf_parameters(self):
+        super().set_gguf_parameters()
+        self.gguf_writer.add_layer_norm_rms_eps(1e-5)
+        if (n_experts := self.hparams.get("num_experts")) is not None:
+            self.gguf_writer.add_expert_count(n_experts)
+
+    _experts: list[dict[str, Tensor]] | None = None
+
+    # Copied from: Qwen2MoeModel
+    def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None) -> Iterable[tuple[str, Tensor]]:
+        # process the experts separately
+        if name.find("experts") != -1:
+            n_experts = self.hparams["num_experts"]
+            assert bid is not None
+
+            if self._experts is None:
+                self._experts = [{} for _ in range(self.block_count)]
+
+            self._experts[bid][name] = data_torch
+
+            if len(self._experts[bid]) >= n_experts * 3:
+                tensors: list[tuple[str, Tensor]] = []
+
+                # merge the experts into a single 3d tensor
+                for w_name in ["down_proj", "gate_proj", "up_proj"]:
+                    datas: list[Tensor] = []
+
+                    for xid in range(n_experts):
+                        ename = f"model.layers.{bid}.mlp.experts.{xid}.{w_name}.weight"
+                        datas.append(self._experts[bid][ename])
+                        del self._experts[bid][ename]
+
+                    data_torch = torch.stack(datas, dim=0)
+
+                    merged_name = f"model.layers.{bid}.mlp.experts.{w_name}.weight"
+
+                    new_name = self.map_tensor_name(merged_name)
+
+                    tensors.append((new_name, data_torch))
+                return tensors
+            else:
+                return []
+
+        return [(self.map_tensor_name(name), data_torch)]
+
+    # Copied from: Qwen2MoeModel
+    def prepare_tensors(self):
+        super().prepare_tensors()
+
+        if self._experts is not None:
+            # flatten `list[dict[str, Tensor]]` into `list[str]`
+            experts = [k for d in self._experts for k in d.keys()]
+            if len(experts) > 0:
+                raise ValueError(f"Unprocessed experts: {experts}")
+
+
 @Model.register("JinaBertModel", "JinaBertForMaskedLM")
 class JinaBertV2Model(BertModel):
     model_arch = gguf.MODEL_ARCH.JINA_BERT_V2
@@ -2974,6 +3122,14 @@ class JinaBertV2Model(BertModel):
             raise NotImplementedError(f'Tokenizer {tokenizer_class} is not supported for JinaBertModel')
         self.gguf_writer.add_add_bos_token(True)
         self.gguf_writer.add_add_eos_token(True)
+
+    def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None) -> Iterable[tuple[str, Tensor]]:
+        # if name starts with "bert.", remove the prefix
+        # e.g. https://huggingface.co/jinaai/jina-reranker-v1-tiny-en
+        if name.startswith("bert."):
+            name = name[5:]
+
+        return super().modify_tensors(data_torch, name, bid)
 
 
 @Model.register("OpenELMForCausalLM")
@@ -3948,7 +4104,108 @@ class ExaoneModel(Model):
         super().prepare_tensors()
 
 
+@Model.register("GraniteForCausalLM")
+class GraniteModel(LlamaModel):
+    """Conversion for IBM's GraniteForCausalLM"""
+    model_arch = gguf.MODEL_ARCH.GRANITE
+
+    def set_gguf_parameters(self):
+        """Granite uses standard llama parameters with the following differences:
+
+        - No head_dim support
+        - New multiplier params:
+            - attention_scale
+            - embedding_scale
+            - residual_scale
+        - logits_scaling
+        """
+        if head_dim := self.hparams.pop("head_dim", None):
+            logger.warning("Ignoring head_dim (%s) from config for Granite", head_dim)
+        super().set_gguf_parameters()
+        # NOTE: Convert _multiplier params to _scale params for naming
+        #   consistency
+        if attention_scale := self.hparams.get("attention_multiplier"):
+            self.gguf_writer.add_attention_scale(attention_scale)
+            logger.info("gguf: (granite) attention_scale = %s", attention_scale)
+        if embedding_scale := self.hparams.get("embedding_multiplier"):
+            self.gguf_writer.add_embedding_scale(embedding_scale)
+            logger.info("gguf: (granite) embedding_scale = %s", embedding_scale)
+        if residual_scale := self.hparams.get("residual_multiplier"):
+            self.gguf_writer.add_residual_scale(residual_scale)
+            logger.info("gguf: (granite) residual_scale = %s", residual_scale)
+        if logits_scale := self.hparams.get("logits_scaling"):
+            self.gguf_writer.add_logit_scale(logits_scale)
+            logger.info("gguf: (granite) logits_scale = %s", logits_scale)
+
+
+@Model.register("GraniteMoeForCausalLM")
+class GraniteMoeModel(GraniteModel):
+    """Conversion for IBM's GraniteMoeForCausalLM"""
+    model_arch = gguf.MODEL_ARCH.GRANITE_MOE
+
+    def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None) -> Iterable[tuple[str, Tensor]]:
+        """In modeling_granitemoe, the JetMoe implementation of parallel experts
+        is used. This essentially merges w1 and w3 into a single tensor with 2x
+        the hidden size that is then split during forward. To keep compatibility
+        with existing mixtral support, we pull them apart here.
+        """
+
+        if name.endswith("block_sparse_moe.input_linear.weight"):
+            ffn_dim = self.hparams["intermediate_size"]
+            assert data_torch.shape[-2] == 2 * ffn_dim, "Merged FFN tensor size must be 2 * intermediate_size"
+            gate, up = data_torch[..., :ffn_dim, :], data_torch[..., ffn_dim:, :]
+            return [
+                (self.format_tensor_name(gguf.MODEL_TENSOR.FFN_GATE_EXP, bid), gate),
+                (self.format_tensor_name(gguf.MODEL_TENSOR.FFN_UP_EXP, bid), up),
+            ]
+
+        return super().modify_tensors(data_torch, name, bid)
+
+
+@Model.register("ChameleonForConditionalGeneration")
+@Model.register("ChameleonForCausalLM")  # obsolete
+class ChameleonModel(Model):
+    model_arch = gguf.MODEL_ARCH.CHAMELEON
+
+    def set_gguf_parameters(self):
+        super().set_gguf_parameters()
+        self.gguf_writer.add_swin_norm(self.hparams.get("swin_norm", False))
+
+    def set_vocab(self):
+        self._set_vocab_gpt2()
+
+    def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None) -> Iterable[tuple[str, Tensor]]:
+        # ignore image tokenizer for now
+        # TODO: remove this once image support is implemented for Chameleon
+        if name.startswith("model.vqmodel"):
+            return []
+
+        n_head = self.hparams["num_attention_heads"]
+        n_kv_head = self.hparams.get("num_key_value_heads")
+        hidden_dim = self.hparams.get("hidden_size")
+
+        if name.endswith(("q_proj.weight", "q_proj.bias")):
+            data_torch = LlamaModel.permute(data_torch, n_head, n_head)
+        if name.endswith(("k_proj.weight", "k_proj.bias")):
+            data_torch = LlamaModel.permute(data_torch, n_head, n_kv_head)
+        if name.endswith(("q_norm.weight", "q_norm.bias")):
+            data_torch = ChameleonModel._reverse_hf_permute(data_torch, n_head, hidden_dim)
+        if name.endswith(("k_norm.weight", "k_norm.bias")):
+            data_torch = ChameleonModel._reverse_hf_permute(data_torch, n_kv_head, hidden_dim)
+
+        return [(self.map_tensor_name(name), data_torch)]
+
+    # see: https://github.com/huggingface/transformers/blob/72fb02c47dbbe1999ae105319f24631cad6e2e00/src/transformers/models/chameleon/convert_chameleon_weights_to_hf.py#L176-L203
+    @staticmethod
+    def _reverse_hf_permute(data_torch, n_heads, hidden_dim):
+        head_dim = hidden_dim // n_heads
+        data_torch = data_torch[0].view(2, head_dim // 2).t().reshape(1, -1)
+        data_torch = data_torch.repeat_interleave(n_heads, 0)
+        return data_torch
+
+
 ###### CONVERSION LOGIC ######
+
 
 # tree of lazy tensors
 class LazyTorchTensor(gguf.LazyBase):
