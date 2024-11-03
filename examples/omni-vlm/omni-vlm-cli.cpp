@@ -137,32 +137,20 @@ static void process_prompt(struct omnivlm_context * ctx_omnivlm, struct omni_ima
 
     std::string system_prompt, user_prompt;
     size_t image_pos = prompt.find("<|image_pad|>");
-    if (image_pos != std::string::npos) {
-        // new templating mode: Provide the full prompt including system message and use <image> as a placeholder for the image
-        system_prompt = prompt.substr(0, image_pos);
-        user_prompt = prompt.substr(image_pos + std::string("<|image_pad|>").length());
-        if (params->verbose_prompt) {
-            auto tmp = ::llama_tokenize(ctx_omnivlm->ctx_llama, system_prompt, true, true);
-            for (int i = 0; i < (int) tmp.size(); i++) {
-                LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(ctx_omnivlm->ctx_llama, tmp[i]).c_str());
-            }
+    // new templating mode: Provide the full prompt including system message and use <image> as a placeholder for the image
+    system_prompt = prompt.substr(0, image_pos);
+    user_prompt = prompt.substr(image_pos + std::string("<|image_pad|>").length());
+    if (params->verbose_prompt) {
+        auto tmp = ::llama_tokenize(ctx_omnivlm->ctx_llama, system_prompt, true, true);
+        for (int i = 0; i < (int) tmp.size(); i++) {
+            LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(ctx_omnivlm->ctx_llama, tmp[i]).c_str());
         }
-        LOG_TEE("user_prompt: %s\n", user_prompt.c_str());
-        if (params->verbose_prompt) {
-            auto tmp = ::llama_tokenize(ctx_omnivlm->ctx_llama, user_prompt, true, true);
-            for (int i = 0; i < (int) tmp.size(); i++) {
-                LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(ctx_omnivlm->ctx_llama, tmp[i]).c_str());
-            }
-        }
-    } else {
-        // llava-1.5 native mode
-        system_prompt = "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.\nUSER:";
-        user_prompt = prompt + "\nASSISTANT:";
-        if (params->verbose_prompt) {
-            auto tmp = llama_tokenize(ctx_omnivlm->ctx_llama, user_prompt, true, true);
-            for (int i = 0; i < (int) tmp.size(); i++) {
-                LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(ctx_omnivlm->ctx_llama, tmp[i]).c_str());
-            }
+    }
+    LOG_TEE("user_prompt: %s\n", user_prompt.c_str());
+    if (params->verbose_prompt) {
+        auto tmp = ::llama_tokenize(ctx_omnivlm->ctx_llama, user_prompt, true, true);
+        for (int i = 0; i < (int) tmp.size(); i++) {
+            LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(ctx_omnivlm->ctx_llama, tmp[i]).c_str());
         }
     }
 
@@ -184,6 +172,7 @@ static void process_prompt(struct omnivlm_context * ctx_omnivlm, struct omni_ima
     for (int i = 0; i < max_tgt_len; i++) {
         const char * tmp = sample(smpl, ctx_omnivlm->ctx_llama, &n_past);
         response += tmp;
+        if (strcmp(tmp, "<|im_end|>") == 0) break;
         if (strcmp(tmp, "</s>") == 0) break;
         // if (strstr(tmp, "###")) break; // Yi-VL behavior
         printf("%s", tmp);

@@ -104,6 +104,6 @@ After successfully compiling omni_vlm_wrapper_shared dynamic library, run:
 python omni_vlm_demo.py \
   --model <PATH TO nano-vlm-processor>/Nano-Llm-494M-F16.gguf \
   --mmproj <PATH TO nano-vlm-instruct>/mmproj-omni-vlm-f16.gguf \
-  --prompt="<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\nDescribe this image for me\n<|vision_start|><|image_pad|><|vision_end|><|im_end|>" \
+  --prompt="Describe this image for me" \
   --image-path cat.png
 ```
