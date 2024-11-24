@@ -159,6 +159,7 @@ parallel_context *parallel_init_context(parallel_context_params &params)
     std::vector<llama_token> tokens_system;
     tokens_system = ::llama_tokenize(ctx, params.system_prompt, true);
     parallel_ctx->n_tokens_system = tokens_system.size();
+    LOG_TEE("%s: n_tokens_system: %d\n", __func__, parallel_ctx->n_tokens_system);
 
     const int n_ctx = llama_n_ctx(ctx);
     // the max batch size is as large as the context to handle cases where we get very long input prompt from multiple
@@ -192,7 +193,7 @@ parallel_context *parallel_init_context(parallel_context_params &params)
     return parallel_ctx;
 }
 
-std::vector<std::string> parallel_inference(parallel_context *parallel_ctx, const std::vector<std::string> &prompts)
+char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
 {
     llama_context *ctx = parallel_ctx->ctx;
     llama_model *model = parallel_ctx->model;
@@ -444,7 +445,13 @@ std::vector<std::string> parallel_inference(parallel_context *parallel_ctx, cons
     LOG_TEE("Total speed (AVG):   %6s  speed: %5.2f t/s\n", "",             (double) (n_total_prompt + n_total_gen) / (t_main_end - t_main_start) * 1e6);
     LOG_TEE("Cache misses:        %6d\n\n", n_cache_miss);
 
-    return responses;
+    char **c_responses = new char *[responses.size()];
+    for (size_t i = 0; i < responses.size(); ++i)
+    {
+        c_responses[i] = strdup(responses[i].c_str());
+    }
+
+    return c_responses;
 }
 
 void parallel_free(parallel_context *parallel_ctx)
@@ -455,4 +462,13 @@ void parallel_free(parallel_context *parallel_ctx)
     llama_free_model(parallel_ctx->model);
 
     llama_backend_free();
+}
+
+void free_responses(char **responses, int num)
+{
+    for (int i = 0; i < num; ++i)
+    {
+        delete[] responses[i];
+    }
+    delete[] responses;
 }

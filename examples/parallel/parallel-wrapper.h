@@ -48,9 +48,11 @@ PARALLEL_API parallel_context_params parallel_context_default_params();
 
 PARALLEL_API parallel_context *parallel_init_context(parallel_context_params &params);
 
-PARALLEL_API std::vector<std::string> parallel_inference(parallel_context *parallel_ctx, const std::vector<std::string> &prompts);
+PARALLEL_API char **parallel_inference(parallel_context *parallel_ctx, char **prompts);
 
 PARALLEL_API void parallel_free(parallel_context *parallel_ctx);
+
+PARALLEL_API void free_responses(char **responses, int num);
 
 #ifdef __cplusplus
 }

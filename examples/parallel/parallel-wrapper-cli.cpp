@@ -29,13 +29,25 @@ static std::vector<std::string> k_prompts = {
     "I want to learn how to play the piano.",
 };
 
-static std::vector<std::string> get_random_prompts(const std::vector<std::string> &prompts, size_t n)
+static std::vector<std::string> get_random_prompts(const std::vector<std::string> &all_prompts, size_t n)
 {
-    std::vector<std::string> shuffled_prompts = prompts;
+    std::vector<std::string> shuffled_prompts = all_prompts;
     std::random_device rd;
     std::mt19937 g(rd());
     std::shuffle(shuffled_prompts.begin(), shuffled_prompts.end(), g);
     return std::vector<std::string>(shuffled_prompts.begin(), shuffled_prompts.begin() + n);
+}
+
+static char **get_random_prompts_c_strings(const std::vector<std::string> &all_prompts, size_t n)
+{
+    std::vector<std::string> prompts = get_random_prompts(all_prompts, n);
+
+    char **c_strings = new char *[n];
+    for (size_t i = 0; i < n; ++i)
+    {
+        c_strings[i] = strdup(prompts[i].c_str());
+    }
+    return c_strings;
 }
 
 int main(int argc, char **argv)
@@ -46,29 +58,28 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    params.system_prompt = k_system.c_str();
+
     parallel_context *parallel_ctx = parallel_init_context(params);
 
-    std::vector<std::string> prompts;
-    std::vector<std::string> responses;
-
     // Get a random subset of prompts
-    prompts = get_random_prompts(k_prompts, params.n_parallel);
-    responses = parallel_inference(parallel_ctx, prompts);
+    char **prompts = get_random_prompts_c_strings(k_prompts, params.n_parallel);
+    char **responses = parallel_inference(parallel_ctx, prompts);
 
-    for (size_t i = 0; i < responses.size(); ++i)
+    for (size_t i = 0; i < params.n_parallel; ++i)
     {
-        LOG_TEE("Prompt %zu: %s\n", i, prompts[i].c_str());
-        LOG_TEE("Response %zu: %s\n", i, responses[i].c_str());
+        LOG_TEE("Prompt %zu: %s\n", i, prompts[i]);
+        LOG_TEE("Response %zu: %s\n", i, responses[i]);
     }
 
     // Get a different random subset of prompts
-    prompts = get_random_prompts(k_prompts, params.n_parallel);
+    prompts = get_random_prompts_c_strings(k_prompts, params.n_parallel);
     responses = parallel_inference(parallel_ctx, prompts);
 
-    for (size_t i = 0; i < responses.size(); ++i)
+    for (size_t i = 0; i < params.n_parallel; ++i)
     {
-        LOG_TEE("Prompt %zu: %s\n", i, prompts[i].c_str());
-        LOG_TEE("Response %zu: %s\n", i, responses[i].c_str());
+        LOG_TEE("Prompt %zu: %s\n", i, prompts[i]);
+        LOG_TEE("Response %zu: %s\n", i, responses[i]);
     }
 
     parallel_free(parallel_ctx);
