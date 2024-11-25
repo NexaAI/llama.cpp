@@ -687,7 +687,7 @@ static struct ggml_backend_metal_context * ggml_metal_init(int n_cb) {
 }
 
 static void ggml_metal_free(struct ggml_backend_metal_context * ctx) {
-    GGML_METAL_LOG_INFO("%s: deallocating\n", __func__);
+    // GGML_METAL_LOG_INFO("%s: deallocating\n", __func__);
 
     for (int i = 0; i < GGML_METAL_KERNEL_TYPE_COUNT; ++i) {
         [ctx->kernels[i].pipeline release];
