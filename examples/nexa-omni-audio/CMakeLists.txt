@@ -25,6 +25,8 @@ add_library(${OMNI_AUDIO_LIB} OBJECT
             omni.h
             audio-projector.cpp
             audio-projector.h
+            whisper.cpp
+            whisper.h
             )
 target_link_libraries(${OMNI_AUDIO_LIB} PRIVATE ggml llama common ${WHISPER_LIB})
 
