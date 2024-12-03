@@ -28,11 +28,11 @@ add_library(${OMNI_AUDIO_LIB} OBJECT
             )
 target_link_libraries(${OMNI_AUDIO_LIB} PRIVATE ggml llama common ${WHISPER_LIB})
 
-target_include_directories(OMNI_AUDIO_LIB PUBLIC .)
-target_include_directories(OMNI_AUDIO_LIB PUBLIC ../..)
-target_include_directories(OMNI_AUDIO_LIB PUBLIC ../../common)
+target_include_directories(${OMNI_AUDIO_LIB} PUBLIC .)
+target_include_directories(${OMNI_AUDIO_LIB} PUBLIC ../..)
+target_include_directories(${OMNI_AUDIO_LIB} PUBLIC ../../common)
 
-target_compile_features(OMNI_AUDIO_LIB PRIVATE cxx_std_11)
+target_compile_features(${OMNI_AUDIO_LIB} PRIVATE cxx_std_11)
 
 add_library(omni_audio_static STATIC $<TARGET_OBJECTS:${OMNI_AUDIO_LIB}>)
 if (BUILD_SHARED_LIBS)
