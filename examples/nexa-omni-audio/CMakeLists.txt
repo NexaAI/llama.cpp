@@ -20,13 +20,11 @@ target_link_libraries(${WHISPER_LIB} PRIVATE ggml llama common Threads::Threads)
 
 # add nexa-omni-audio-lib library
 set(OMNI_AUDIO_LIB omni_audio)
-add_library(${OMNI_AUDIO_LIB} OBJECT
+add_library(${OMNI_AUDIO_LIB} STATIC
             omni.cpp
             omni.h
             audio-projector.cpp
             audio-projector.h
-            whisper.cpp
-            whisper.h
             )
 target_link_libraries(${OMNI_AUDIO_LIB} PRIVATE ggml llama common ${WHISPER_LIB})
 
