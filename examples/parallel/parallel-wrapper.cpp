@@ -110,6 +110,10 @@ bool parallel_context_params_parse(int argc, char **argv, parallel_context_param
         {
             params.model = argv[++i];
         }
+        else if (arg == "--n-ctx")
+        {
+            params.n_ctx = std::stoi(argv[++i]);
+        }
         else if (arg == "-ngl" || arg == "--gpu-layers" || arg == "--n-gpu-layers")
         {
             params.n_gpu_layers = std::stoi(argv[++i]);
@@ -134,6 +138,7 @@ parallel_context_params parallel_context_default_params()
     parallel_context_params params;
     params.model = "";
     params.system_prompt = "";
+    params.n_ctx = 8192;
     params.n_parallel = 1;
     params.n_gpu_layers = -1;
     return params;
@@ -143,6 +148,7 @@ parallel_context *parallel_init_context(parallel_context_params &params)
 {
     gpt_params gpt_params;
     gpt_params.model = params.model;
+    gpt_params.n_ctx = params.n_ctx;
     gpt_params.n_sequences = params.n_parallel;
     gpt_params.n_parallel = params.n_parallel + 1;
     gpt_params.n_gpu_layers = params.n_gpu_layers;

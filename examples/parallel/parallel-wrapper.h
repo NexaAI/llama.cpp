@@ -27,6 +27,7 @@ struct parallel_context_params
 {
     const char *model;
     const char *system_prompt;
+    int32_t n_ctx;
     int32_t n_parallel;
     int32_t n_gpu_layers;
 };
