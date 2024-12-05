@@ -1,7 +1,9 @@
 #include "parallel-wrapper.h"
 #include "common.h"
+#include "llama-impl.h"
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -68,8 +70,8 @@ int main(int argc, char **argv)
 
     for (size_t i = 0; i < params.n_parallel; ++i)
     {
-        LOG_TEE("Prompt %zu: %s\n", i, prompts[i]);
-        LOG_TEE("Response %zu: %s\n", i, responses[i]);
+        LLAMA_LOG_INFO("Prompt %zu: %s\n", i, prompts[i]);
+        LLAMA_LOG_INFO("Response %zu: %s\n", i, responses[i]);
     }
 
     // Get a different random subset of prompts
@@ -78,8 +80,8 @@ int main(int argc, char **argv)
 
     for (size_t i = 0; i < params.n_parallel; ++i)
     {
-        LOG_TEE("Prompt %zu: %s\n", i, prompts[i]);
-        LOG_TEE("Response %zu: %s\n", i, responses[i]);
+        LLAMA_LOG_INFO("Prompt %zu: %s\n", i, prompts[i]);
+        LLAMA_LOG_INFO("Response %zu: %s\n", i, responses[i]);
     }
 
     parallel_free(parallel_ctx);

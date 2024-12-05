@@ -1,4 +1,4 @@
-# whisper
+# nexa-omni-audio
 
 # Find the Threads package
 find_package(Threads REQUIRED)
@@ -28,23 +28,13 @@ add_library(${OMNI_AUDIO_LIB} OBJECT
             )
 target_link_libraries(${OMNI_AUDIO_LIB} PRIVATE ggml llama common ${WHISPER_LIB})
 
-target_include_directories(OMNI_AUDIO_LIB PUBLIC .)
-target_include_directories(OMNI_AUDIO_LIB PUBLIC ../..)
-target_include_directories(OMNI_AUDIO_LIB PUBLIC ../../common)
+target_include_directories(${OMNI_AUDIO_LIB} PUBLIC .)
+target_include_directories(${OMNI_AUDIO_LIB} PUBLIC ../..)
+target_include_directories(${OMNI_AUDIO_LIB} PUBLIC ../../common)
 
-target_compile_features(OMNI_AUDIO_LIB PRIVATE cxx_std_11)
+target_compile_features(${OMNI_AUDIO_LIB} PRIVATE cxx_std_11)
 
-add_library(omni_audio_static STATIC $<TARGET_OBJECTS:OMNI_AUDIO_LIB>)
-if (BUILD_SHARED_LIBS)
-    set_target_properties(OMNI_AUDIO_LIB PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(OMNI_AUDIO_LIB PRIVATE LLAMA_SHARED LLAMA_BUILD)
-    add_library(omni_audio_shared SHARED $<TARGET_OBJECTS:OMNI_AUDIO_LIB>)
-    target_link_libraries(omni_audio_shared PRIVATE common ggml llama ${CMAKE_THREAD_LIBS_INIT})
-    install(TARGETS omni_audio_shared LIBRARY)
-endif()
-
-
-
+add_library(omni_audio_static STATIC $<TARGET_OBJECTS:${OMNI_AUDIO_LIB}>)
 
 
 # build the nexa-omni-cli
@@ -66,9 +56,9 @@ if(BUILD_SHARED_LIBS)
                             POSITION_INDEPENDENT_CODE ON
                             OUTPUT_NAME "${OMNI_AUDIO_LIB}_shared"
     )
-    install(TARGETS ${OMNI_AUDIO_LIB}_shared 
-    LIBRARY
-    PUBLIC_HEADER DESTINATION include
+    install(TARGETS ${OMNI_AUDIO_LIB}_shared
+        LIBRARY
+        PUBLIC_HEADER DESTINATION include
     )
 
     # Add OMNI_AUDIO_SHARED definition when building the shared library

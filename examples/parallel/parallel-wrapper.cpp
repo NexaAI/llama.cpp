@@ -1,10 +1,14 @@
 #include "parallel-wrapper.h"
 #include "common.h"
 #include "llama.h"
+#include "llama-impl.h"
+#include "sampling.h"
 
+#include <cstring>
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <thread>
 #include <vector>
 #include <ctime>
 
@@ -33,7 +37,7 @@ struct client
     {
         if (ctx_sampling)
         {
-            llama_sampling_free(ctx_sampling);
+            common_sampler_free(ctx_sampling);
         }
     }
 
@@ -54,7 +58,7 @@ struct client
     std::string prompt;
     std::string response;
 
-    struct llama_sampling_context *ctx_sampling = nullptr;
+    common_sampler *ctx_sampling = nullptr;
 };
 
 static void print_date_time()
@@ -82,8 +86,8 @@ static std::vector<std::string> split_string(const std::string &input, char deli
 
 static void parallel_print_usage(int, char **argv)
 {
-    LOG("\n example usage:\n");
-    LOG("\n     %s --model <parallel/ggml-model.gguf> [--system-prompt <\"system prompt\">] --n-parallel <n>\n", argv[0]);
+    LLAMA_LOG_ERROR("\n example usage:\n");
+    LLAMA_LOG_ERROR("\n     %s --model <parallel/ggml-model.gguf> [--system-prompt <\"system prompt\">] --n-parallel <n>\n", argv[0]);
 }
 
 bool parallel_context_params_parse(int argc, char **argv, parallel_context_params &params)
@@ -146,16 +150,32 @@ parallel_context_params parallel_context_default_params()
 
 parallel_context *parallel_init_context(parallel_context_params &params)
 {
-    gpt_params gpt_params;
-    gpt_params.model = params.model;
-    gpt_params.n_ctx = params.n_ctx;
-    gpt_params.n_sequences = params.n_parallel;
-    gpt_params.n_parallel = params.n_parallel + 1;
-    gpt_params.n_gpu_layers = params.n_gpu_layers;
+    common_params common_params;
+    common_params.model = params.model;
+    common_params.n_ctx = params.n_ctx;
+    common_params.n_sequences = params.n_parallel;
+    common_params.n_parallel = params.n_parallel + 1;
+    common_params.n_gpu_layers = params.n_gpu_layers;
+    if (common_params.cpuparams.n_threads <= 0)
+    {
+        common_params.cpuparams.n_threads = std::thread::hardware_concurrency();
+    }
 
-    llama_init_result llama_init = llama_init_from_gpt_params(gpt_params);
-    llama_context *ctx = llama_init.context;
-    llama_model *model = llama_init.model;
+    llama_model_params model_params = common_model_params_to_llama(common_params);
+    llama_model *model = llama_load_model_from_file(common_params.model.c_str(), model_params);
+    if (model == NULL)
+    {
+        LLAMA_LOG_ERROR("%s: unable to load model\n", __func__);
+        return NULL;
+    }
+
+    llama_context_params ctx_params = common_context_params_to_llama(common_params);
+    llama_context *ctx = llama_new_context_with_model(model, ctx_params);
+    if (ctx == NULL)
+    {
+        LLAMA_LOG_ERROR("%s: failed to create the llama_context\n", __func__);
+        return NULL;
+    }
 
     parallel_context *parallel_ctx = new parallel_context();
     parallel_ctx->ctx = ctx;
@@ -163,9 +183,9 @@ parallel_context *parallel_init_context(parallel_context_params &params)
     parallel_ctx->n_parallel = params.n_parallel;
 
     std::vector<llama_token> tokens_system;
-    tokens_system = ::llama_tokenize(ctx, params.system_prompt, true);
+    tokens_system = ::common_tokenize(ctx, params.system_prompt, true);
     parallel_ctx->n_tokens_system = tokens_system.size();
-    LOG_TEE("%s: n_tokens_system: %d\n", __func__, parallel_ctx->n_tokens_system);
+    LLAMA_LOG_INFO("%s: n_tokens_system: %d\n", __func__, parallel_ctx->n_tokens_system);
 
     const int n_ctx = llama_n_ctx(ctx);
     // the max batch size is as large as the context to handle cases where we get very long input prompt from multiple
@@ -174,16 +194,16 @@ parallel_context *parallel_init_context(parallel_context_params &params)
     parallel_ctx->batch = batch;
 
     {
-        LOG_TEE("%s: Evaluating the system prompt ...\n", __func__);
+        LLAMA_LOG_INFO("%s: Evaluating the system prompt ...\n", __func__);
 
         for (int32_t i = 0; i < parallel_ctx->n_tokens_system; ++i)
         {
-            llama_batch_add(batch, tokens_system[i], i, {0}, false);
+            common_batch_add(batch, tokens_system[i], i, {0}, false);
         }
 
         if (llama_decode(ctx, batch) != 0)
         {
-            LOG_TEE("%s: llama_decode() failed\n", __func__);
+            LLAMA_LOG_ERROR("%s: llama_decode() failed\n", __func__);
             return {};
         }
 
@@ -193,7 +213,7 @@ parallel_context *parallel_init_context(parallel_context_params &params)
             llama_kv_cache_seq_cp(ctx, 0, i, -1, -1);
         }
 
-        LOG_TEE("\n");
+        LLAMA_LOG_INFO("\n");
     }
 
     return parallel_ctx;
@@ -210,18 +230,18 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
     std::vector<std::string> responses;
     responses.resize(n_clients);
 
-    gpt_params params;
+    common_params params;
     const bool cont_batching = params.cont_batching;
     const bool dump_kv_cache = params.dump_kv_cache;
 
-    llama_sampling_params sparams;
+    common_sampler_params sparams;
 
     std::vector<client> clients(n_clients);
     for (size_t i = 0; i < clients.size(); ++i)
     {
         auto &client = clients[i];
         client.id = i;
-        client.ctx_sampling = llama_sampling_init(sparams);
+        client.ctx_sampling = common_sampler_init(model, sparams);
     }
 
     llama_seq_id g_seq_id = 0;
@@ -240,10 +260,10 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
         if (dump_kv_cache)
         {
             llama_kv_cache_view_update(ctx, &kvc_view);
-            llama_kv_cache_dump_view_seqs(kvc_view, 40);
+            // llama_kv_cache_dump_view_seqs(kvc_view, 40);
         }
 
-        llama_batch_clear(batch);
+        common_batch_clear(batch);
 
         // decode any currently ongoing sequences
         for (auto &client : clients)
@@ -255,7 +275,7 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
 
             client.i_batch = batch.n_tokens;
 
-            llama_batch_add(batch, client.sampled, n_tokens_system + client.n_prompt + client.n_decoded, {client.id + 1}, true);
+            common_batch_add(batch, client.sampled, n_tokens_system + client.n_prompt + client.n_decoded, {client.id + 1}, true);
 
             client.n_decoded += 1;
         }
@@ -270,7 +290,7 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                 llama_kv_cache_seq_cp(ctx, 0, i, -1, -1);
             }
 
-            LOG_TEE("%s: clearing the KV cache\n", __func__);
+            LLAMA_LOG_INFO("%s: clearing the KV cache\n", __func__);
         }
 
         // insert new sequences for decoding
@@ -289,15 +309,15 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                     client.prompt = client.input + "\nAssistant:";
                     client.response = "";
 
-                    llama_sampling_reset(client.ctx_sampling);
+                    common_sampler_reset(client.ctx_sampling);
 
                     // do not prepend BOS because we have a system prompt!
                     std::vector<llama_token> tokens_prompt;
-                    tokens_prompt = ::llama_tokenize(ctx, client.prompt, false);
+                    tokens_prompt = ::common_tokenize(ctx, client.prompt, false);
 
                     for (size_t i = 0; i < tokens_prompt.size(); ++i)
                     {
-                        llama_batch_add(batch, tokens_prompt[i], i + n_tokens_system, {client.id + 1}, false);
+                        common_batch_add(batch, tokens_prompt[i], i + n_tokens_system, {client.id + 1}, false);
                     }
 
                     // extract the logits only for the last token
@@ -310,7 +330,7 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                     client.n_decoded = 0;
                     client.i_batch = batch.n_tokens - 1;
 
-                    LOG_TEE("\033[31mClient %3d, seq %4d, started decoding ...\033[0m\n", client.id, client.seq_id);
+                    LLAMA_LOG_INFO("\033[31mClient %3d, seq %4d, started decoding ...\033[0m\n", client.id, client.seq_id);
 
                     g_seq_id += 1;
 
@@ -349,7 +369,6 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                 batch.n_seq_id + i,
                 batch.seq_id + i,
                 batch.logits + i,
-                0, 0, 0, // unused
             };
 
             const int ret = llama_decode(ctx, batch_view);
@@ -358,11 +377,11 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                 if (n_batch == 1 || ret < 0)
                 {
                     // if you get here, it means the KV cache is full - try increasing it via the context size
-                    LOG_TEE("%s : failed to decode the batch, n_batch = %d, ret = %d\n", __func__, n_batch, ret);
+                    LLAMA_LOG_ERROR("%s : failed to decode the batch, n_batch = %d, ret = %d\n", __func__, n_batch, ret);
                     return {};
                 }
 
-                LOG("%s : failed to decode the batch, retrying with n_batch = %d\n", __func__, n_batch / 2);
+                LLAMA_LOG_ERROR("%s : failed to decode the batch, retrying with n_batch = %d\n", __func__, n_batch / 2);
 
                 n_cache_miss += 1;
 
@@ -373,7 +392,7 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                 continue;
             }
 
-            LOG("%s : decoded batch of %d tokens\n", __func__, n_tokens);
+            // LLAMA_LOG_INFO("%s : decoded batch of %d tokens\n", __func__, n_tokens);
 
             for (auto &client : clients)
             {
@@ -385,9 +404,9 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                 // printf("client %d, seq %d, token %d, pos %d, batch %d\n",
                 //         client.id, client.seq_id, client.sampled, client.n_decoded, client.i_batch);
 
-                const llama_token id = llama_sampling_sample(client.ctx_sampling, ctx, NULL, client.i_batch - i);
+                const llama_token id = common_sampler_sample(client.ctx_sampling, ctx, client.i_batch - i);
 
-                llama_sampling_accept(client.ctx_sampling, ctx, id, true);
+                common_sampler_accept(client.ctx_sampling, id, true);
 
                 if (client.n_decoded == 1)
                 {
@@ -396,7 +415,7 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
                     client.t_start_gen = ggml_time_us();
                 }
 
-                const std::string token_str = llama_token_to_piece(ctx, id);
+                const std::string token_str = common_token_to_piece(ctx, id);
 
                 client.response += token_str;
                 client.sampled = id;
@@ -425,13 +444,13 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
 
                     responses[client.seq_id] = client.response;
 
-                    LOG_TEE("\033[31mClient %3d, seq %3d/%3d, prompt %4d t, response %4d t, time %5.2f s, speed %5.2f t/s, cache miss %d \033[0m \nInput:    %s\n\033[35mResponse: %s\033[0m\n\n",
-                            client.id, client.seq_id, n_seq, client.n_prompt, client.n_decoded,
-                            (t_main_end - client.t_start_prompt) / 1e6,
-                            (double)(client.n_prompt + client.n_decoded) / (t_main_end - client.t_start_prompt) * 1e6,
-                            n_cache_miss,
-                            ::trim(client.input).c_str(),
-                            ::trim(client.response).c_str());
+                    LLAMA_LOG_INFO("\033[31mClient %3d, seq %3d/%3d, prompt %4d t, response %4d t, time %5.2f s, speed %5.2f t/s, cache miss %d \033[0m \n\033[35mResponse: %s\033[0m\n\n",
+                                   client.id, client.seq_id, n_seq, client.n_prompt, client.n_decoded,
+                                   (t_main_end - client.t_start_prompt) / 1e6,
+                                   (double)(client.n_prompt + client.n_decoded) / (t_main_end - client.t_start_prompt) * 1e6,
+                                   n_cache_miss,
+                                //    ::trim(client.input).c_str(),
+                                   ::trim(client.response).c_str());
 
                     n_total_prompt += client.n_prompt;
                     n_total_gen += client.n_decoded;
@@ -446,10 +465,10 @@ char **parallel_inference(parallel_context *parallel_ctx, char **prompts)
 
     const auto t_main_end = ggml_time_us();
 
-    LOG_TEE("Total prompt tokens: %6d, speed: %5.2f t/s\n", n_total_prompt, (double) (n_total_prompt              ) / (t_main_end - t_main_start) * 1e6);
-    LOG_TEE("Total gen tokens:    %6d, speed: %5.2f t/s\n", n_total_gen,    (double) (n_total_gen                 ) / (t_main_end - t_main_start) * 1e6);
-    LOG_TEE("Total speed (AVG):   %6s  speed: %5.2f t/s\n", "",             (double) (n_total_prompt + n_total_gen) / (t_main_end - t_main_start) * 1e6);
-    LOG_TEE("Cache misses:        %6d\n\n", n_cache_miss);
+    LLAMA_LOG_INFO("Total prompt tokens: %6d, speed: %5.2f t/s\n", n_total_prompt, (double)(n_total_prompt) / (t_main_end - t_main_start) * 1e6);
+    LLAMA_LOG_INFO("Total gen tokens:    %6d, speed: %5.2f t/s\n", n_total_gen, (double)(n_total_gen) / (t_main_end - t_main_start) * 1e6);
+    LLAMA_LOG_INFO("Total speed (AVG):   %6s  speed: %5.2f t/s\n", "", (double)(n_total_prompt + n_total_gen) / (t_main_end - t_main_start) * 1e6);
+    LLAMA_LOG_INFO("Cache misses:        %6d\n\n", n_cache_miss);
 
     char **c_responses = new char *[responses.size()];
     for (size_t i = 0; i < responses.size(); ++i)
