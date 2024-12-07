@@ -8,11 +8,11 @@
 #include <cstdio>
 #include <string>
 #include <vector>
-#include <iostream>
+// #include <iostream>
 #include <fstream>
 
-using std::cout;
-using std::endl;
+// using std::cout;
+// using std::endl;
 
 static void print_usage(int, char ** argv) {
     LOG("\nexample usage:\n");
@@ -85,7 +85,7 @@ int main(int argc, char ** argv) {
         std::copy(
             tokens_list_list.begin() + s,
             tokens_list_list.begin() + s + n_parallel, 
-            tokens_list_seg
+            tokens_list_seg.begin()
         );
         size_t prompt_max_length = std::max_element(
                                         tokens_list_seg.begin(),
@@ -142,8 +142,8 @@ int main(int argc, char ** argv) {
         // we use this object to submit token data for decoding
         int32_t total_length_prompt_seg = std::accumulate(
             tokens_list_seg.begin(), tokens_list_seg.end(), 0,
-            [](auto& a, int32_t b) {
-                return a.size() + b;
+            [](int32_t a, auto& b) {
+                return a + b.size();
             }
         );
 
@@ -196,6 +196,7 @@ int main(int argc, char ** argv) {
         // std::vector<int32_t> dec_cur = {(int32_t)(tokens_list_list[0].size()), (int32_t)(tokens_list_list[1].size())};
         int32_t n_decode = 0; // related to n_dec sample per batch x batch size
         int32_t n_cur = 0;
+        // std::vector<size_t> n_cur_list(n_parallel, 0);
 
         const auto t_main_start = ggml_time_us();
 
@@ -219,7 +220,6 @@ int main(int argc, char ** argv) {
                     if (n_parallel > 1) {
                         LOG_INF("%s: stream %d finished at n_cur = %d", __func__, i, dec_cur[i]);
                     }
-
                     continue;
                 }
 
@@ -257,7 +257,7 @@ int main(int argc, char ** argv) {
             LOG("\n");
 
             for (int32_t i = 0; i < n_parallel; ++i) {
-                LOG("sequence %d:\n\n%s%s\n\n", i, params.prompt.c_str(), streams[i].c_str());
+                LOG("sequence %d:\n\n%s\n\n", i, streams[i].c_str());
             }
         }
 
