@@ -396,6 +396,8 @@ struct whisper_context *whisper_init_context(whisper_params &params)
             cparams.dtw_aheads_preset = WHISPER_AHEADS_LARGE_V2;
         if (params.dtw == "large.v3")
             cparams.dtw_aheads_preset = WHISPER_AHEADS_LARGE_V3;
+        if (params.dtw == "large.v3.turbo")
+            cparams.dtw_aheads_preset = WHISPER_AHEADS_LARGE_V3_TURBO;
 
         if (cparams.dtw_aheads_preset == WHISPER_AHEADS_NONE)
         {
