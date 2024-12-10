@@ -10,7 +10,7 @@ target_link_libraries(${WHISPER_LIB} PRIVATE ggml llama common Threads::Threads)
 
 # Add omni_audio library
 set(OMNI_AUDIO_LIB omni_audio)
-add_library(${OMNI_AUDIO_LIB} OBJECT
+add_library(${OMNI_AUDIO_LIB} STATIC
             omni.cpp
             omni.h
             audio-projector.cpp
@@ -18,15 +18,23 @@ add_library(${OMNI_AUDIO_LIB} OBJECT
             )
 target_link_libraries(${OMNI_AUDIO_LIB} PRIVATE ggml llama common ${WHISPER_LIB})
 
+<<<<<<< Updated upstream
 # Include directories for omni_audio
+=======
+>>>>>>> Stashed changes
 target_include_directories(${OMNI_AUDIO_LIB} PUBLIC .)
 target_include_directories(${OMNI_AUDIO_LIB} PUBLIC ../..)
 target_include_directories(${OMNI_AUDIO_LIB} PUBLIC ../../common)
 
+<<<<<<< Updated upstream
 # Compile features for omni_audio
 target_compile_features(${OMNI_AUDIO_LIB} PRIVATE cxx_std_11)
 
 # Create a static library from omni_audio
+=======
+target_compile_features(${OMNI_AUDIO_LIB} PRIVATE cxx_std_11)
+
+>>>>>>> Stashed changes
 add_library(omni_audio_static STATIC $<TARGET_OBJECTS:${OMNI_AUDIO_LIB}>)
 
 # Shared library creation
@@ -61,8 +69,12 @@ if (BUILD_SHARED_LIBS)
     if(MSVC)
         set_target_properties(omni_audio_shared PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
     endif()
+<<<<<<< Updated upstream
 endif()
 
 # Build the nexa-omni-cli executable
 add_executable(nexa-omni-cli omni-cli.cpp)
 target_link_libraries(nexa-omni-cli PRIVATE ggml llama common Threads::Threads ${WHISPER_LIB} omni_audio_static)
+=======
+endif()
+>>>>>>> Stashed changes
