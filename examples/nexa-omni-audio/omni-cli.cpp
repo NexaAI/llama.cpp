@@ -11,7 +11,8 @@ int main(int argc, char **argv)
 
     omni_context *ctx_omni = omni_init_context(ctx_params);
 
-    omni_process_full(ctx_omni, ctx_params);
+    const char *response = omni_process_full(ctx_omni, ctx_params);
+    printf("%s\n", response);
 
     omni_free(ctx_omni);
 
