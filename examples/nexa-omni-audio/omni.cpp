@@ -473,9 +473,9 @@ static struct whisper_full_params get_whisper_inference_params_from_whisper_para
 
 static void omni_print_usage(int, char **argv)
 {
-    LOG("\n example usage:\n");
-    LOG("\n     %s --model <omni/ggml-model.gguf> --mmproj <whisper/model-f16.gguf> --file <path/to/an/audio.wav> [-p \"describe the audio in detail.\"]\n", argv[0]);
-    LOG("\n note: a lower temperature value like 0.1 is recommended for better quality.\n");
+    LOG_TEE("\n example usage:\n");
+    LOG_TEE("\n     %s --model <omni/model.gguf> --mmproj <whisper/model-f16.gguf> --file <path/to/an/audio.wav> [-p \"describe the audio in detail.\"]\n", argv[0]);
+    LOG_TEE("\n note: a lower temperature value like 0.1 is recommended for better quality.\n");
 }
 
 bool omni_context_params_parse(int argc, char **argv, omni_context_params &params)
@@ -829,7 +829,7 @@ const char* omni_process_prompt(struct omni_context *ctx_omni, ggml_tensor *audi
 
     // generate the response
 
-    LOG("\n");
+    LOG_TEE("\n");
 
     struct llama_sampling_context * ctx_sampling = llama_sampling_init(params.gpt.sparams);
     if (!ctx_sampling) {
@@ -853,12 +853,12 @@ const char* omni_process_prompt(struct omni_context *ctx_omni, ggml_tensor *audi
         if (strstr(response.c_str(), "USER:"))
             break; // mistral llava-1.6
 
-        fflush(stdout);
+        // fflush(stdout);
         response += tmp;
     }
 
     llama_sampling_free(ctx_sampling);
-    printf("\n");
+
     if(internal_chars != nullptr) { free(internal_chars); }
     internal_chars = malloc(sizeof(char)*(response.size()+1));
     strncpy((char*)(internal_chars), response.c_str(), response.size());
