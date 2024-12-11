@@ -871,5 +871,8 @@ const char* omni_process_full(struct omni_context *ctx_omni, omni_context_params
     omni_params all_params = get_omni_params_from_context_params(params);
 
     ggml_tensor *audio_embed = omni_process_audio(ctx_omni, all_params);
+    if (audio_embed == NULL) {
+        return NULL;
+    }
     return omni_process_prompt(ctx_omni, audio_embed, all_params, all_params.gpt.prompt);
 }
