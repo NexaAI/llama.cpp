@@ -82,7 +82,7 @@ let package = Package(
             ],
             sources: sources,
             resources: resources,
-            publicHeadersPath: "spm-headers",
+            // publicHeadersPath: "spm-headers",
             cSettings: cSettings,
             linkerSettings: linkerSettings
         ),
@@ -96,7 +96,7 @@ let package = Package(
                 "clip.cpp", 
                 "clip.h"
             ],
-            publicHeadersPath: ".",
+            // publicHeadersPath: ".",
             cSettings: [
                 .unsafeFlags(["-Wno-cast-qual"]),
                 .headerSearchPath("."),
