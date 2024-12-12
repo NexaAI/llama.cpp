@@ -82,7 +82,7 @@ let package = Package(
             ],
             sources: sources,
             resources: resources,
-            // publicHeadersPath: "spm-headers",
+             publicHeadersPath: "spm-headers",
             cSettings: cSettings,
             linkerSettings: linkerSettings
         ),
@@ -90,13 +90,14 @@ let package = Package(
             name: "llava",
             dependencies: ["llama"],
             path: "examples/llava",
+            exclude: ["android"],
             sources: [
                 "llava.cpp",
                 "llava.h",
                 "clip.cpp", 
                 "clip.h"
             ],
-            // publicHeadersPath: ".",
+            publicHeadersPath: ".",
             cSettings: [
                 .unsafeFlags(["-Wno-cast-qual"]),
                 .headerSearchPath("."),
@@ -111,6 +112,7 @@ let package = Package(
             name: "llava-cli",
             dependencies: ["llava"],
             path: "examples/llava",
+            exclude: ["android"],
             sources: ["llava-cli.cpp"],
             cxxSettings: [
                 .unsafeFlags(["-std=c++11"])
