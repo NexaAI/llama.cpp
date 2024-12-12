@@ -62,6 +62,8 @@ let package = Package(
     ],
     products: [
         .library(name: "llama", targets: ["llama"]),
+        .library(name: "llava", targets: ["llava"]),
+        .executable(name: "llama-llava-cli", targets: ["llava-cli"]),
     ],
     targets: [
         .target(
@@ -83,7 +85,37 @@ let package = Package(
             publicHeadersPath: "spm-headers",
             cSettings: cSettings,
             linkerSettings: linkerSettings
-        )
+        ),
+        .target(
+            name: "llava",
+            dependencies: ["llama"],
+            path: "examples/llava",
+            sources: [
+                "llava.cpp",
+                "llava.h",
+                "clip.cpp", 
+                "clip.h"
+            ],
+            publicHeadersPath: ".",
+            cSettings: [
+                .unsafeFlags(["-Wno-cast-qual"]),
+                .headerSearchPath("."),
+                .headerSearchPath("../."),
+                .headerSearchPath("../../common")
+            ],
+            cxxSettings: [
+                .unsafeFlags(["-std=c++11"])
+            ]
+        ),
+        .executableTarget(
+            name: "llava-cli",
+            dependencies: ["llava"],
+            path: "examples/llava",
+            sources: ["llava-cli.cpp"],
+            cxxSettings: [
+                .unsafeFlags(["-std=c++11"])
+            ]
+        ),
     ],
     cxxLanguageStandard: .cxx11
 )
