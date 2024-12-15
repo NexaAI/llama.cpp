@@ -667,21 +667,21 @@ struct omni_context *omni_init_context(omni_context_params &params)
         return NULL;
     }
 
-    llama_context_params ctx_params = llama_context_params_from_gpt_params(all_params.gpt);
-    ctx_params.n_ctx = all_params.gpt.n_ctx < 2048 ? 2048 : all_params.gpt.n_ctx; // we need a longer context size to process image embeddings
+    // llama_context_params ctx_params = llama_context_params_from_gpt_params(all_params.gpt);
+    // ctx_params.n_ctx = all_params.gpt.n_ctx < 2048 ? 2048 : all_params.gpt.n_ctx; // we need a longer context size to process image embeddings
 
-    llama_context *ctx_llama = llama_new_context_with_model(model, ctx_params);
-
-    if (ctx_llama == NULL)
-    {
-        LLAMA_LOG_ERROR("%s: failed to create the llama_context\n", __func__);
-        return NULL;
-    }
-
-    // whisper
-    LLAMA_LOG_INFO("------- whisper --------\n");
-
-    whisper_context *ctx_whisper = whisper_init_context(all_params.whisper);
+    // llama_context *ctx_llama = llama_new_context_with_model(model, ctx_params);
+    //
+    // if (ctx_llama == NULL)
+    // {
+    //     LLAMA_LOG_ERROR("%s: failed to create the llama_context\n", __func__);
+    //     return NULL;
+    // }
+    //
+    // // whisper
+    // LLAMA_LOG_INFO("------- whisper --------\n");
+    //
+    // whisper_context *ctx_whisper = whisper_init_context(all_params.whisper);
 
     // projector
     LLAMA_LOG_INFO("------- projector --------\n");
@@ -695,8 +695,10 @@ struct omni_context *omni_init_context(omni_context_params &params)
 
     auto *ctx_omni = (struct omni_context *)malloc(sizeof(omni_context));
 
-    ctx_omni->ctx_llama = ctx_llama;
-    ctx_omni->ctx_whisper = ctx_whisper;
+    // ctx_omni->ctx_llama = ctx_llama;
+    // ctx_omni->ctx_whisper = ctx_whisper;
+    ctx_omni->ctx_llama = nullptr;
+    ctx_omni->ctx_whisper = nullptr;
     ctx_omni->model = model;
     ctx_omni->projector = projector;
 
@@ -711,17 +713,17 @@ void omni_free(struct omni_context *ctx_omni)
     {
         free(internal_chars);
     }
-    if (ctx_omni->ctx_whisper)
-    {
-        whisper_free(ctx_omni->ctx_whisper);
-        ctx_omni->ctx_whisper = NULL;
-    }
+    // if (ctx_omni->ctx_whisper)
+    // {
+    //     whisper_free(ctx_omni->ctx_whisper);
+    //     ctx_omni->ctx_whisper = NULL;
+    // }
     if (ctx_omni->projector)
     {
         ctx_omni->projector->free();
     }
 
-    llama_free(ctx_omni->ctx_llama);
+    // llama_free(ctx_omni->ctx_llama);
     llama_free_model(ctx_omni->model);
     llama_backend_free();
 }
@@ -868,11 +870,32 @@ const char* omni_process_prompt(struct omni_context *ctx_omni, ggml_tensor *audi
 
 const char* omni_process_full(struct omni_context *ctx_omni, omni_context_params &params)
 {
+    // init context in every process
     omni_params all_params = get_omni_params_from_context_params(params);
+    llama_context_params ctx_params = llama_context_params_from_gpt_params(all_params.gpt);
+    ctx_params.n_ctx = all_params.gpt.n_ctx < 2048 ? 2048 : all_params.gpt.n_ctx; // we need a longer context size to process image embeddings
+    ctx_omni->ctx_llama = llama_new_context_with_model(ctx_omni->model, ctx_params);
+
+    if (ctx_omni->ctx_llama == NULL) {
+        LLAMA_LOG_ERROR("%s: failed to create the llama_context\n", __func__);
+        return NULL;
+    }
+    // whisper
+    LLAMA_LOG_INFO("------- whisper --------\n");
+   ctx_omni->ctx_whisper = whisper_init_context(all_params.whisper);
 
     ggml_tensor *audio_embed = omni_process_audio(ctx_omni, all_params);
     if (audio_embed == NULL) {
         return NULL;
     }
-    return omni_process_prompt(ctx_omni, audio_embed, all_params, all_params.gpt.prompt);
+    const char* ret_str = omni_process_prompt(ctx_omni, audio_embed, all_params, all_params.gpt.prompt);
+
+    if (ctx_omni->ctx_whisper) {
+        whisper_free(ctx_omni->ctx_whisper);
+        ctx_omni->ctx_whisper = NULL;
+    }
+    llama_free(ctx_omni->ctx_llama);
+    ctx_omni->ctx_llama = NULL;
+
+    return ret_str;
 }
