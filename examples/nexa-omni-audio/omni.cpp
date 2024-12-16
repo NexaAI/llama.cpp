@@ -710,6 +710,7 @@ void omni_free(struct omni_context *ctx_omni)
     if(internal_chars != nullptr)
     {
         free(internal_chars);
+        internal_chars = nullptr;
     }
     if (ctx_omni->ctx_whisper)
     {
