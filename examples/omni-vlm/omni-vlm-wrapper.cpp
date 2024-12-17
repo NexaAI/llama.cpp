@@ -77,6 +77,8 @@ struct omni_streaming_sample {
     }
 };
 
+static std::unique_ptr<omni_streaming_sample> g_oss = nullptr;
+
 static struct omni_image_embed * load_image(omnivlm_context * ctx_omnivlm, gpt_params * params, const std::string & fname) {
 
     // load and preprocess the image
@@ -354,9 +356,12 @@ struct omni_streaming_sample* omnivlm_inference_streaming(const char *prompt, co
         throw std::runtime_error("You set wrong vlm_version info strings.");
     }
 
-    omni_streaming_sample* oss = new omni_streaming_sample(image);
+    if (! g_oss) {
+        g_oss.reset();
+    }
+    g_oss = std::make_unique<omni_streaming_sample>(image);
 
-    return oss;
+    return g_oss.get();
 }
 
 int32_t sample(omni_streaming_sample* oss) {
@@ -398,17 +403,17 @@ int32_t sample(omni_streaming_sample* oss) {
         ret_id = oss->sample();
         if (oss->ret_str_ == "<|im_end|>" || oss->ret_str_ == "</s>" ) {
             ret_id = -1;
-            delete oss;
+            // delete oss;
         }
     } else {
         if(oss->dec_cnt_ == max_tgt_len) {
             ret_id = -2;
-            delete oss;
+            // delete oss;
         } else {
             ret_id = oss->sample();
             if (oss->ret_str_ == "<|im_end|>" || oss->ret_str_ == "</s>" ) {
                 ret_id = -1;
-                delete oss;
+                // delete oss;
             }
         }
     }
