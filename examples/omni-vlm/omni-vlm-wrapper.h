@@ -31,6 +31,8 @@ OMNIVLM_API struct omni_streaming_sample* omnivlm_inference_streaming(const char
 
 OMNIVLM_API int32_t sample(struct omni_streaming_sample *);
 
+OMNIVLM_API const char* get_str(struct omni_streaming_sample *);
+
 OMNIVLM_API void omnivlm_free();
 
 #ifdef __cplusplus

@@ -415,3 +415,7 @@ int32_t sample(omni_streaming_sample* oss) {
     // std::cout << oss->ret_str_  << std::ends;
     return ret_id;
 }
+
+const char* get_str(omni_streaming_sample* oss) {
+    return oss->ret_str_.c_str();
+}
