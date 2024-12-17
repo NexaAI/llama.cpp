@@ -68,7 +68,8 @@ struct omni_streaming_sample {
         llama_sampling_free(ctx_sampling_);
         g_ctx_omnivlm->model = nullptr;
         omnivlm_free(g_ctx_omnivlm);
-        g_ctx_omnivlm = nullptr; // bad code, but now it works...
+        free(g_ctx_omnivlm);
+        g_ctx_omnivlm = nullptr;
         // if(! g_model) {
         //     llama_free_model(g_model);
         //     g_model = nullptr;
@@ -319,6 +320,7 @@ const char* omnivlm_inference(const char *prompt, const char *imag_path) {
     omnivlm_image_embed_free(image_embed);
     g_ctx_omnivlm->model = nullptr;
     omnivlm_free(g_ctx_omnivlm);
+    free(g_ctx_omnivlm);
     g_ctx_omnivlm = nullptr;
 
     return ret_chars;
@@ -326,12 +328,12 @@ const char* omnivlm_inference(const char *prompt, const char *imag_path) {
 
 void omnivlm_free() {
     if(! internal_chars) { free(internal_chars); }
-    if(! g_ctx_omnivlm) {
+    if(g_ctx_omnivlm != nullptr) {
         // this snipet should never be run!
         g_ctx_omnivlm->model = nullptr;
         omnivlm_free(g_ctx_omnivlm);
     }
-    if(! g_model) {
+    if(g_model != nullptr) {
         llama_free_model(g_model);
         g_model = nullptr;
     }
@@ -410,6 +412,6 @@ int32_t sample(omni_streaming_sample* oss) {
             }
         }
     }
-
+    // std::cout << oss->ret_str_  << std::ends;
     return ret_id;
 }
