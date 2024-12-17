@@ -909,6 +909,7 @@ struct omni_streaming {
         ++dec_cnt_;
         dec_str_ = ret_str;
 
+        return id;
     }
 
     ~omni_streaming() {
@@ -916,8 +917,12 @@ struct omni_streaming {
     }
 };
 
+static std::unique_ptr<omni_streaming> g_oss;
+
 omni_streaming* omni_process_streaming(omni_context *ctx_omni, omni_context_params &params) {
-    return new omni_streaming(ctx_omni, get_omni_params_from_context_params(params));
+    g_oss.reset();
+    g_oss = std::make_unique<omni_streaming>(ctx_omni, get_omni_params_from_context_params(params));
+    return g_oss.get();
 }
 
 int32_t sample(omni_streaming* omni_s) {
@@ -973,5 +978,13 @@ int32_t sample(omni_streaming* omni_s) {
         ret_id = -1;
     }
 
+    // if(ret_id < 0) {
+    //     // omni_free(omni_s->ctx_omni_);
+    // }
+
     return ret_id;
+}
+
+const char* get_str(omni_streaming* oss) {
+    return oss->dec_str_.c_str();
 }
