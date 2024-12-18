@@ -41,7 +41,7 @@ struct omni_streaming_sample {
     int32_t dec_cnt_;
 
     omni_streaming_sample() = delete;
-    omni_streaming_sample(std::string& image)
+    omni_streaming_sample(const std::string& image)
             :image_(image) {
         n_past_ = 0;
         dec_cnt_ = 0;
@@ -66,10 +66,12 @@ struct omni_streaming_sample {
 
     ~omni_streaming_sample() {
         llama_sampling_free(ctx_sampling_);
-        g_ctx_omnivlm->model = nullptr;
-        omnivlm_free(g_ctx_omnivlm);
-        free(g_ctx_omnivlm);
-        g_ctx_omnivlm = nullptr;
+        if(g_ctx_omnivlm != nullptr) {
+            g_ctx_omnivlm->model = nullptr;
+            omnivlm_free(g_ctx_omnivlm);
+            free(g_ctx_omnivlm);
+            g_ctx_omnivlm = nullptr;
+        }
         // if(! g_model) {
         //     llama_free_model(g_model);
         //     g_model = nullptr;
@@ -334,7 +336,10 @@ void omnivlm_free() {
         // this snipet should never be run!
         g_ctx_omnivlm->model = nullptr;
         omnivlm_free(g_ctx_omnivlm);
+        free(g_ctx_omnivlm);
     }
+    g_ctx_omnivlm = nullptr;
+
     if(g_model != nullptr) {
         llama_free_model(g_model);
         g_model = nullptr;
@@ -342,9 +347,14 @@ void omnivlm_free() {
 }
 
 struct omni_streaming_sample* omnivlm_inference_streaming(const char *prompt, const char *imag_path) {
+    if (! g_oss) {
+        g_oss.reset();
+    }
+    g_oss = std::make_unique<omni_streaming_sample>(std::string(imag_path));
+
     g_ctx_omnivlm = omnivlm_init_context(&g_params, g_model);
 
-    std::string image = imag_path;
+    // std::string image = imag_path;
     g_params.prompt = prompt;
 
     if (g_params.omni_vlm_version == "vlm-81-ocr") {
@@ -356,10 +366,10 @@ struct omni_streaming_sample* omnivlm_inference_streaming(const char *prompt, co
         throw std::runtime_error("You set wrong vlm_version info strings.");
     }
 
-    if (! g_oss) {
-        g_oss.reset();
-    }
-    g_oss = std::make_unique<omni_streaming_sample>(image);
+    // if (! g_oss) {
+    //     g_oss.reset();
+    // }
+    // g_oss = std::make_unique<omni_streaming_sample>(image);
 
     return g_oss.get();
 }
