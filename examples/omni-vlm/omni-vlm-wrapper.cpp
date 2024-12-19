@@ -26,9 +26,60 @@ struct omnivlm_context {
 
 void* internal_chars = nullptr;
 
-static struct gpt_params params;
-static struct llama_model* model;
-static struct omnivlm_context* ctx_omnivlm;
+static struct gpt_params g_params;
+static struct llama_model* g_model = nullptr;
+static struct omnivlm_context* g_ctx_omnivlm = nullptr;
+
+static bool eval_id(struct llama_context * ctx_llama, int id, int * n_past);
+static void omnivlm_free(struct omnivlm_context * ctx_omnivlm);
+
+struct omni_streaming_sample {
+    llama_sampling_context* ctx_sampling_;
+    std::string image_;
+    std::string ret_str_;
+    int32_t n_past_;
+    int32_t dec_cnt_;
+
+    omni_streaming_sample() = delete;
+    omni_streaming_sample(const std::string& image)
+            :image_(image) {
+        n_past_ = 0;
+        dec_cnt_ = 0;
+        g_params.sparams.top_k = 1;
+        g_params.sparams.top_p = 1.0f;
+        ctx_sampling_ = llama_sampling_init(g_params.sparams);
+    }
+
+    int32_t sample() {
+        const llama_token id = llama_sampling_sample(ctx_sampling_, g_ctx_omnivlm->ctx_llama, NULL);
+        llama_sampling_accept(ctx_sampling_, g_ctx_omnivlm->ctx_llama, id, true);
+        if (llama_token_is_eog(llama_get_model(g_ctx_omnivlm->ctx_llama), id)) {
+            ret_str_ = "</s>";
+        } else {
+            ret_str_ = llama_token_to_piece(g_ctx_omnivlm->ctx_llama, id);
+        }
+        eval_id(g_ctx_omnivlm->ctx_llama, id, &n_past_);
+
+        ++dec_cnt_;
+        return id;
+    }
+
+    ~omni_streaming_sample() {
+        llama_sampling_free(ctx_sampling_);
+        if(g_ctx_omnivlm != nullptr) {
+            g_ctx_omnivlm->model = nullptr;
+            omnivlm_free(g_ctx_omnivlm);
+            free(g_ctx_omnivlm);
+            g_ctx_omnivlm = nullptr;
+        }
+        // if(! g_model) {
+        //     llama_free_model(g_model);
+        //     g_model = nullptr;
+        // }
+    }
+};
+
+static std::unique_ptr<omni_streaming_sample> g_oss = nullptr;
 
 static struct omni_image_embed * load_image(omnivlm_context * ctx_omnivlm, gpt_params * params, const std::string & fname) {
 
@@ -79,12 +130,12 @@ static struct omnivlm_context * omnivlm_init_context(gpt_params * params, llama_
         return NULL;
     }
 
-    ctx_omnivlm = (struct omnivlm_context *)malloc(sizeof(omnivlm_context));
+    g_ctx_omnivlm = (struct omnivlm_context *)malloc(sizeof(omnivlm_context));
 
-    ctx_omnivlm->ctx_llama = ctx_llama;
-    ctx_omnivlm->ctx_clip = ctx_clip;
-    ctx_omnivlm->model = model;
-    return ctx_omnivlm;
+    g_ctx_omnivlm->ctx_llama = ctx_llama;
+    g_ctx_omnivlm->ctx_clip = ctx_clip;
+    g_ctx_omnivlm->model = model;
+    return g_ctx_omnivlm;
 }
 
 static bool eval_tokens(struct llama_context * ctx_llama, std::vector<llama_token> tokens, int n_batch, int * n_past) {
@@ -208,7 +259,7 @@ static void omnivlm_free(struct omnivlm_context * ctx_omnivlm) {
     }
 
     llama_free(ctx_omnivlm->ctx_llama);
-    llama_free_model(ctx_omnivlm->model);
+    if(! ctx_omnivlm->model) llama_free_model(ctx_omnivlm->model);
     llama_backend_free();
 }
 
@@ -224,66 +275,162 @@ static void print_usage(int argc, char ** argv, const gpt_params & params) {
 void omnivlm_init(const char* llm_model_path, const char* projector_model_path, const char* omni_vlm_version) {
     const char* argv = "omni-wrapper-py";
     char* nc_argv = const_cast<char*>(argv);
-    if (!gpt_params_parse(1, &nc_argv, params)) {
+    if (!gpt_params_parse(1, &nc_argv, g_params)) {
         print_usage(1, &nc_argv, {});
         throw std::runtime_error("init params error.");
     }
-    params.model = llm_model_path;
-    params.mmproj = projector_model_path;
-    params.omni_vlm_version = omni_vlm_version;
+    g_params.model = llm_model_path;
+    g_params.mmproj = projector_model_path;
+    g_params.omni_vlm_version = omni_vlm_version;
 
-    std::string omni_vlm_ver = params.omni_vlm_version;
+    std::string omni_vlm_ver = g_params.omni_vlm_version;
     if(omni_vlm_ver != "vlm-81-ocr" && omni_vlm_ver != "vlm-81-instruct" && omni_vlm_ver != "nano-vlm-instruct") {
         fprintf(stderr, "%s: error: you set wrong omni_vlm_string: %s\n", __func__, omni_vlm_version);
         fprintf(stderr, "%s: Valid omni_vlm_version set is ('vlm-81-ocr', 'vlm-81-instruct', 'nano-vlm-instruct')\n", __func__);
         throw std::runtime_error("You set wrong vlm_version info strings.");
     }
 
-    model = omnivlm_init(&params);
-    if (model == nullptr) {
+    g_model = omnivlm_init(&g_params);
+    if (g_model == nullptr) {
         fprintf(stderr, "%s: error: failed to init omnivlm model\n", __func__);
         throw std::runtime_error("Failed to init omnivlm model");
     }
 }
 
 const char* omnivlm_inference(const char *prompt, const char *imag_path) {
-    ctx_omnivlm = omnivlm_init_context(&params, model);
+    g_ctx_omnivlm = omnivlm_init_context(&g_params, g_model);
 
     std::string image = imag_path;
-    params.prompt = prompt;
+    g_params.prompt = prompt;
 
-    if (params.omni_vlm_version == "vlm-81-ocr") {
-        params.prompt = "<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\n <|ocr_start|><|vision_start|><|image_pad|><|vision_end|><|ocr_end|><|im_end|>";
-    } else if (params.omni_vlm_version == "vlm-81-instruct" || params.omni_vlm_version == "nano-vlm-instruct") {
-        params.prompt = "<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\n\n<|vision_start|><|image_pad|><|vision_end|>" + params.prompt + "<|im_end|>";
+    if (g_params.omni_vlm_version == "vlm-81-ocr") {
+        g_params.prompt = "<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\n <|ocr_start|><|vision_start|><|image_pad|><|vision_end|><|ocr_end|><|im_end|>";
+    } else if (g_params.omni_vlm_version == "vlm-81-instruct" || g_params.omni_vlm_version == "nano-vlm-instruct") {
+        g_params.prompt = "<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\n\n<|vision_start|><|image_pad|><|vision_end|>" + g_params.prompt + "<|im_end|>";
     } else {
-        LOG_TEE("%s : error: you set wrong vlm version info:'%s'.\n", __func__, params.omni_vlm_version.c_str());
+        LOG_TEE("%s : error: you set wrong vlm version info:'%s'.\n", __func__, g_params.omni_vlm_version.c_str());
         throw std::runtime_error("You set wrong vlm_version info strings.");
     }
 
-    auto * image_embed = load_image(ctx_omnivlm, &params, image);
+    auto * image_embed = load_image(g_ctx_omnivlm, &g_params, image);
     if (!image_embed) {
         LOG_TEE("%s: failed to load image %s. Terminating\n\n", __func__, image.c_str());
         throw std::runtime_error("failed to load image " + image);
     }
     // process the prompt
-    const char* ret_chars = process_prompt(ctx_omnivlm, image_embed, &params, params.prompt);
+    const char* ret_chars = process_prompt(g_ctx_omnivlm, image_embed, &g_params, g_params.prompt);
 
     // llama_perf_print(ctx_omnivlm->ctx_llama, LLAMA_PERF_TYPE_CONTEXT);
     omnivlm_image_embed_free(image_embed);
-    ctx_omnivlm->model = nullptr;
-    omnivlm_free(ctx_omnivlm);
-    ctx_omnivlm = nullptr;
+    g_ctx_omnivlm->model = nullptr;
+    omnivlm_free(g_ctx_omnivlm);
+    free(g_ctx_omnivlm);
+    g_ctx_omnivlm = nullptr;
 
     return ret_chars;
 }
 
 void omnivlm_free() {
-    if(internal_chars != nullptr) { free(internal_chars); }
-    if(ctx_omnivlm != nullptr) {
+    if(! internal_chars) { free(internal_chars); }
+    if(g_ctx_omnivlm != nullptr) {
         // this snipet should never be run!
-        ctx_omnivlm->model = nullptr;
-        omnivlm_free(ctx_omnivlm);
+        g_ctx_omnivlm->model = nullptr;
+        omnivlm_free(g_ctx_omnivlm);
+        free(g_ctx_omnivlm);
     }
-    llama_free_model(model);
+    g_ctx_omnivlm = nullptr;
+
+    if(g_model != nullptr) {
+        llama_free_model(g_model);
+        g_model = nullptr;
+    }
+}
+
+struct omni_streaming_sample* omnivlm_inference_streaming(const char *prompt, const char *imag_path) {
+    if (! g_oss) {
+        g_oss.reset();
+    }
+    g_oss = std::make_unique<omni_streaming_sample>(std::string(imag_path));
+
+    g_ctx_omnivlm = omnivlm_init_context(&g_params, g_model);
+
+    // std::string image = imag_path;
+    g_params.prompt = prompt;
+
+    if (g_params.omni_vlm_version == "vlm-81-ocr") {
+        g_params.prompt = "<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\n <|ocr_start|><|vision_start|><|image_pad|><|vision_end|><|ocr_end|><|im_end|>";
+    } else if (g_params.omni_vlm_version == "vlm-81-instruct" || g_params.omni_vlm_version == "nano-vlm-instruct") {
+        g_params.prompt = "<|im_start|>system\nYou are Nano-Omni-VLM, created by Nexa AI. You are a helpful assistant.<|im_end|>\n<|im_start|>user\n\n<|vision_start|><|image_pad|><|vision_end|>" + g_params.prompt + "<|im_end|>";
+    } else {
+        LOG_TEE("%s : error: you set wrong vlm version info:'%s'.\n", __func__, g_params.omni_vlm_version.c_str());
+        throw std::runtime_error("You set wrong vlm_version info strings.");
+    }
+
+    // if (! g_oss) {
+    //     g_oss.reset();
+    // }
+    // g_oss = std::make_unique<omni_streaming_sample>(image);
+
+    return g_oss.get();
+}
+
+int32_t sample(omni_streaming_sample* oss) {
+    const int max_tgt_len = g_params.n_predict < 0 ? 256 : g_params.n_predict;
+    int32_t ret_id;
+    if(oss->n_past_ == 0) {
+        auto * image_embed = load_image(g_ctx_omnivlm, &g_params, oss->image_);
+        if (!image_embed) {
+            LOG_TEE("%s: failed to load image %s. Terminating\n\n", __func__, oss->image_.c_str());
+            throw std::runtime_error("failed to load image " + oss->image_);
+        }
+
+        size_t image_pos = g_params.prompt.find("<|image_pad|>");
+        std::string system_prompt, user_prompt;
+
+        // new templating mode: Provide the full prompt including system message and use <image> as a placeholder for the image
+        system_prompt = g_params.prompt.substr(0, image_pos);
+        user_prompt = g_params.prompt.substr(image_pos + std::string("<|image_pad|>").length());
+        if (g_params.verbose_prompt) {
+            auto tmp = ::llama_tokenize(g_ctx_omnivlm->ctx_llama, system_prompt, true, true);
+            for (int i = 0; i < (int) tmp.size(); i++) {
+                LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(g_ctx_omnivlm->ctx_llama, tmp[i]).c_str());
+            }
+        }
+        // LOG_TEE("user_prompt: %s\n", user_prompt.c_str());
+        if (g_params.verbose_prompt) {
+            auto tmp = ::llama_tokenize(g_ctx_omnivlm->ctx_llama, user_prompt, true, true);
+            for (int i = 0; i < (int) tmp.size(); i++) {
+                LOG_TEE("%6d -> '%s'\n", tmp[i], llama_token_to_piece(g_ctx_omnivlm->ctx_llama, tmp[i]).c_str());
+            }
+        }
+
+        eval_string(g_ctx_omnivlm->ctx_llama, system_prompt.c_str(), g_params.n_batch, &(oss->n_past_), true);
+        omnivlm_eval_image_embed(g_ctx_omnivlm->ctx_llama, image_embed, g_params.n_batch, &(oss->n_past_));
+        eval_string(g_ctx_omnivlm->ctx_llama, user_prompt.c_str(), g_params.n_batch, &(oss->n_past_), false);
+
+        omnivlm_image_embed_free(image_embed);
+
+        ret_id = oss->sample();
+        if (oss->ret_str_ == "<|im_end|>" || oss->ret_str_ == "</s>" ) {
+            ret_id = -1;
+            // delete oss;
+        }
+    } else {
+        if(oss->dec_cnt_ == max_tgt_len) {
+            ret_id = -2;
+            // delete oss;
+        } else {
+            ret_id = oss->sample();
+            if (oss->ret_str_ == "<|im_end|>" || oss->ret_str_ == "</s>" ) {
+                ret_id = -1;
+                // delete oss;
+            }
+        }
+    }
+    // std::cout << oss->ret_str_  << std::ends;
+    return ret_id;
+}
+
+const char* get_str(omni_streaming_sample* oss) {
+    return oss->ret_str_.c_str();
 }
