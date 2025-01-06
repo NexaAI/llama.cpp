@@ -46,6 +46,8 @@ struct omni_context
     struct llama_model *model;
 };
 
+struct omni_streaming;
+
 OMNI_AUDIO_API bool omni_context_params_parse(int argc, char **argv, omni_context_params &params);
 
 OMNI_AUDIO_API omni_context_params omni_context_default_params();
@@ -58,6 +60,15 @@ OMNI_AUDIO_API const char* omni_process_full(
     struct omni_context *ctx_omni,
     omni_context_params &params
 );
+
+OMNI_AUDIO_API omni_streaming* omni_process_streaming(
+    struct omni_context *ctx_omni,
+    omni_context_params &params
+);
+
+OMNI_AUDIO_API int32_t sample(omni_streaming*);
+
+OMNI_AUDIO_API const char* get_str(omni_streaming*);
 
 #ifdef __cplusplus
 }

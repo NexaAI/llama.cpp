@@ -882,3 +882,118 @@ const char* omni_process_full(struct omni_context *ctx_omni, omni_context_params
     ggml_tensor *audio_embed = omni_process_audio(ctx_omni, all_params);
     return omni_process_prompt(ctx_omni, audio_embed, all_params, all_params.gpt.prompt);
 }
+
+
+// streaming
+
+
+struct omni_streaming {
+    int32_t dec_cnt_;
+    int32_t n_past_;
+    int32_t dec_id_;
+    std::string dec_str_;
+    struct omni_context* ctx_omni_;
+    struct omni_params params_;
+    struct common_sampler* ctx_sampling_;
+
+    omni_streaming() = delete;
+    omni_streaming(omni_context* ctx, const omni_params& params)
+        : ctx_omni_(ctx), params_(params) {
+        dec_cnt_ = 0;
+        n_past_ = 0;
+        ctx_sampling_ = common_sampler_init(ctx_omni_->model, params_.gpt.sparams);
+    };
+
+    int32_t sample() {
+        llama_token id = common_sampler_sample(ctx_sampling_, ctx_omni_->ctx_llama, NULL);
+        common_sampler_accept(ctx_sampling_, id, true);
+        static std::string ret_str;
+        if (llama_token_is_eog(llama_get_model(ctx_omni_->ctx_llama), id)) {
+            ret_str = "</s>";
+        } else {
+            ret_str = common_token_to_piece(ctx_omni_->ctx_llama, id);
+        }
+        eval_id(ctx_omni_->ctx_llama, id, &n_past_);
+
+        ++dec_cnt_;
+        dec_str_ = ret_str;
+
+        return id;
+    }
+
+    ~omni_streaming() {
+        common_sampler_free(ctx_sampling_);
+    }
+};
+
+static std::unique_ptr<omni_streaming> g_oss;
+
+omni_streaming* omni_process_streaming(omni_context *ctx_omni, omni_context_params &params) {
+    g_oss.reset();
+    g_oss = std::make_unique<omni_streaming>(ctx_omni, get_omni_params_from_context_params(params));
+    return g_oss.get();
+}
+
+int32_t sample(omni_streaming* omni_s) {
+    int32_t ret_id = -3;
+    std::string ret_str;
+    if(omni_s->dec_cnt_ == 0) {
+        omni_params& params = omni_s->params_;
+        omni_context* ctx_omni = omni_s->ctx_omni_;
+        ggml_tensor *audio_embed = omni_process_audio(omni_s->ctx_omni_, omni_s->params_);
+        if (audio_embed == NULL) {
+            throw std::runtime_error("ERROR: audio embedding error.");
+        }
+        int& n_past = omni_s->n_past_;
+
+        int n_audio_embed = audio_embed->ne[1];
+        GGML_ASSERT(params.gpt.n_predict < 0 || params.gpt.n_predict > n_audio_embed);
+
+        // const int max_tgt_len = params.gpt.n_predict < 0 ? 256 + n_audio_embed : params.gpt.n_predict;
+        std::string& prompt = params.gpt.prompt;
+        std::string system_prompt, user_prompt;
+        size_t audio_pos = find_audio_token(prompt);
+        if (audio_pos != std::string::npos)
+        {
+            system_prompt = prompt.substr(0, audio_pos);
+            user_prompt = prompt.substr(audio_pos + std::string(AUDIO_TOKEN).length());
+        }
+        else
+        {
+            system_prompt = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\nAudio 1: <|audio_bos|>";
+            user_prompt = "<|audio_eos|>\n" + prompt + "<|im_end|>\n<|im_start|>assistant\n";
+        }
+
+        eval_string(ctx_omni->ctx_llama, system_prompt.c_str(), params.gpt.n_batch, &n_past, true);
+        omni_eval_audio_embed(ctx_omni->ctx_llama, audio_embed, params.gpt.n_batch, &n_past);
+        eval_string(ctx_omni->ctx_llama, user_prompt.c_str(), params.gpt.n_batch, &n_past, false);
+
+        ret_id = omni_s->sample();
+    } else {
+        if(omni_s->dec_cnt_ == omni_s->params_.gpt.n_predict) {
+            ret_id = -2;
+            omni_s->dec_str_ = "";
+        } else {
+            ret_id = omni_s->sample();
+        }
+    }
+
+    ret_str = omni_s->dec_str_;
+    if (ret_str == "</s>"
+        || ret_str == "###"
+        || ret_str == "<|im_end|>"
+        || ret_str == "<|im_start|>"
+        || ret_str == "USER:") {
+        ret_id = -1;
+    }
+
+    // if(ret_id < 0) {
+    //     // omni_free(omni_s->ctx_omni_);
+    // }
+
+    return ret_id;
+}
+
+const char* get_str(omni_streaming* oss) {
+    return oss->dec_str_.c_str();
+}
