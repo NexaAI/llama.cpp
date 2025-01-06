@@ -894,16 +894,19 @@ struct omni_streaming {
     };
 
     int32_t sample() {
-        const llama_token id = common_sampler_sample(ctx_sampling_, ctx_omni_->ctx_llama, -1);
+        llama_token id = common_sampler_sample(ctx_sampling_, ctx_omni_->ctx_llama, NULL);
         common_sampler_accept(ctx_sampling_, id, true);
+        static std::string ret_str;
         if (llama_token_is_eog(llama_get_model(ctx_omni_->ctx_llama), id)) {
-            dec_str_ = "</s>";
+            ret_str = "</s>";
         } else {
-            dec_str_ = common_token_to_piece(ctx_omni_->ctx_llama, id);
+            ret_str = common_token_to_piece(ctx_omni_->ctx_llama, id);
         }
         eval_id(ctx_omni_->ctx_llama, id, &n_past_);
 
         ++dec_cnt_;
+        dec_str_ = ret_str;
+
         return id;
     }
 
@@ -911,7 +914,6 @@ struct omni_streaming {
         common_sampler_free(ctx_sampling_);
     }
 };
-
 
 static std::unique_ptr<omni_streaming> g_oss;
 
@@ -927,7 +929,7 @@ int32_t sample(omni_streaming* omni_s) {
     if(omni_s->dec_cnt_ == 0) {
         omni_params& params = omni_s->params_;
         omni_context* ctx_omni = omni_s->ctx_omni_;
-        ggml_tensor *audio_embed = omni_process_audio(ctx_omni, params);
+        ggml_tensor *audio_embed = omni_process_audio(omni_s->ctx_omni_, omni_s->params_);
         if (audio_embed == NULL) {
             throw std::runtime_error("ERROR: audio embedding error.");
         }
@@ -936,6 +938,7 @@ int32_t sample(omni_streaming* omni_s) {
         int n_audio_embed = audio_embed->ne[1];
         GGML_ASSERT(params.gpt.n_predict < 0 || params.gpt.n_predict > n_audio_embed);
 
+        // const int max_tgt_len = params.gpt.n_predict < 0 ? 256 + n_audio_embed : params.gpt.n_predict;
         std::string& prompt = params.gpt.prompt;
         std::string system_prompt, user_prompt;
         size_t audio_pos = find_audio_token(prompt);
@@ -972,6 +975,10 @@ int32_t sample(omni_streaming* omni_s) {
         || ret_str == "USER:") {
         ret_id = -1;
     }
+
+    // if(ret_id < 0) {
+    //     // omni_free(omni_s->ctx_omni_);
+    // }
 
     return ret_id;
 }

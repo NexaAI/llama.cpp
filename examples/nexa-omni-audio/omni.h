@@ -1,11 +1,15 @@
-#ifndef OMNI_AUDIO_H
-#define OMNI_AUDIO_H
+#pragma once
 
 #include "whisper.h"
 #include "llama.h"
 #include "grammar-parser.h"
 #include "common.h"
 #include "common-nexa.h"
+
+#include <string>
+#include <thread>
+
+#include "audio-projector.h"
 
 #ifdef OMNI_AUDIO_SHARED
 #    if defined(_WIN32) && !defined(__MINGW32__)
@@ -25,47 +29,47 @@
 extern "C" {
 #endif
 
-typedef struct {
+struct omni_context_params
+{
     const char *model;
     const char *mmproj;
     const char *file;
     const char *prompt;
     int32_t n_gpu_layers;
-} omni_context_params;
+};
 
-typedef struct {
+struct omni_context
+{
     struct whisper_context *ctx_whisper;
     struct audio_projector *projector;
     struct llama_context *ctx_llama;
     struct llama_model *model;
-} omni_context;
+};
 
-typedef struct omni_streaming omni_streaming;
+struct omni_streaming;
 
-OMNI_AUDIO_API int omni_context_params_parse(int argc, char **argv, omni_context_params *params);
+OMNI_AUDIO_API bool omni_context_params_parse(int argc, char **argv, omni_context_params &params);
 
-OMNI_AUDIO_API omni_context_params omni_context_default_params(void);
+OMNI_AUDIO_API omni_context_params omni_context_default_params();
 
-OMNI_AUDIO_API omni_context* omni_init_context(omni_context_params *params);
+OMNI_AUDIO_API struct omni_context *omni_init_context(omni_context_params &params);
 
-OMNI_AUDIO_API void omni_free(omni_context *ctx_omni);
+OMNI_AUDIO_API void omni_free(struct omni_context *ctx_omni);
 
 OMNI_AUDIO_API const char* omni_process_full(
-    omni_context *ctx_omni,
-    omni_context_params *params
+    struct omni_context *ctx_omni,
+    omni_context_params &params
 );
 
 OMNI_AUDIO_API omni_streaming* omni_process_streaming(
-    omni_context *ctx_omni,
-    omni_context_params *params
+    struct omni_context *ctx_omni,
+    omni_context_params &params
 );
 
-OMNI_AUDIO_API int32_t omni_sample(omni_streaming *streaming);
+OMNI_AUDIO_API int32_t sample(omni_streaming*);
 
-OMNI_AUDIO_API const char* omni_get_str(omni_streaming *streaming);
+OMNI_AUDIO_API const char* get_str(omni_streaming*);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif 
