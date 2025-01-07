@@ -39,7 +39,8 @@ var cSettings: [CSetting] = [
     .unsafeFlags(["-framework", "Foundation"]),  
     .unsafeFlags(["-framework", "Accelerate"]), 
     .unsafeFlags(["-framework", "Metal"]),
-    .define("GGML_USE_METAL")
+    .define("GGML_USE_METAL"),
+    .unsafeFlags(["-std=c99"])
 ]
 
 #if canImport(Darwin)
