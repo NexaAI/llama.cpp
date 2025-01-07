@@ -20,6 +20,8 @@ var sources = [
     "ggml/src/ggml-cpu/ggml-cpu-quants.c",
     "ggml/src/ggml-threading.cpp",
     "ggml/src/ggml-quants.c",
+    "common/arg.h",
+    "common/arg.cpp",
 ]
 
 var llavaSources = [
