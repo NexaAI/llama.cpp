@@ -96,6 +96,7 @@ let package = Package(
             path: ".",  
             sources: llavaSources,
             resources: resources,
+            publicHeadersPath: "spm-headers",
             cSettings: cSettings + [
                 .headerSearchPath("common") 
             ],
