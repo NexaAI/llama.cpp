@@ -38,6 +38,7 @@ var cSettings: [CSetting] = [
     .unsafeFlags(["-Wno-shorten-64-to-32", "-O3", "-DNDEBUG"]),
     .unsafeFlags(["-fno-objc-arc"]),
     .headerSearchPath("ggml/src"),
+    .headerSearchPath("common"),
     .unsafeFlags(["-framework", "Foundation"]),  
     .unsafeFlags(["-framework", "Accelerate"]), 
     .unsafeFlags(["-framework", "Metal"]),
@@ -87,7 +88,9 @@ let package = Package(
             sources: sources,
             resources: resources,
             publicHeadersPath: "spm-headers",
-            cSettings: cSettings,
+            cSettings: cSettings + [
+                .headerSearchPath("common")
+            ],
             linkerSettings: linkerSettings
         ),
         .target(
