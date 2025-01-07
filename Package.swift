@@ -22,14 +22,13 @@ var sources = [
     "ggml/src/ggml-quants.c",
 ]
 
+
+
 var llavaSources = [
     "examples/llava/llava.cpp",
     "examples/llava/llava.h",
     "examples/llava/clip.cpp",
     "examples/llava/clip.h",
-    "common/stb_image.h",
-    "common/arg.h",
-    "common/arg.cpp",
 ]
 
 var resources: [Resource] = []
@@ -71,8 +70,10 @@ let package = Package(
         .library(name: "llava", targets: ["llava"]),
     ],
     targets: [
+        
         .target(
             name: "llama",
+            dependencies: [],
             path: ".",
             exclude: [
                 "build",
@@ -92,8 +93,20 @@ let package = Package(
             linkerSettings: linkerSettings
         ),
         .target(
-            name: "llava",
+            name: "common",
             dependencies: ["llama"],
+            path: ".",
+            sources: [
+                "common/arg.cpp",
+                "common/arg.h",
+            ],
+            publicHeadersPath: "spm/common", 
+            cSettings: [
+            ]
+        ),
+        .target(
+            name: "llava",
+            dependencies: ["common", "llama"],
             path: ".",  
             sources: llavaSources,
             resources: resources,
