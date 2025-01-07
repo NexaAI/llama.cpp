@@ -23,7 +23,7 @@ var sources = [
 ]
 
 var llavaSources = [
-    "examples/llava/llava.cpp",      // llava.cpp 在 examples/llava 目录中
+    "examples/llava/llava.cpp",
     "examples/llava/llava.h",
     "examples/llava/clip.cpp",
     "examples/llava/clip.h",
@@ -36,15 +36,14 @@ var cSettings: [CSetting] = [
     .unsafeFlags(["-Wno-shorten-64-to-32", "-O3", "-DNDEBUG"]),
     .unsafeFlags(["-fno-objc-arc"]),
     .headerSearchPath("ggml/src"),
-    .unsafeFlags(["-framework", "Foundation"]),  // Ensures Foundation is linked
-    .unsafeFlags(["-framework", "Accelerate"]), // Link Accelerate if used
-    .unsafeFlags(["-framework", "Metal"]), // Link Metal if used
-    .define("GGML_USE_ACCELERATE"),
+    .unsafeFlags(["-framework", "Foundation"]),  
+    .unsafeFlags(["-framework", "Accelerate"]), 
+    .unsafeFlags(["-framework", "Metal"]),
     .define("GGML_USE_METAL")
 ]
 
 #if canImport(Darwin)
-sources.append("ggml/src/ggml-metal/ggml-metal.mm")  // Use Objective-C++ (.mm) file
+sources.append("ggml/src/ggml-metal/ggml-metal.mm") 
 resources.append(.process("ggml/src/ggml-metal/ggml-metal.metal"))
 linkerSettings.append(.linkedFramework("Accelerate"))
 cSettings.append(contentsOf: [
