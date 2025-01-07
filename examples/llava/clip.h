@@ -1,6 +1,7 @@
 #ifndef CLIP_H
 #define CLIP_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
