@@ -20,8 +20,6 @@ var sources = [
     "ggml/src/ggml-cpu/ggml-cpu-quants.c",
     "ggml/src/ggml-threading.cpp",
     "ggml/src/ggml-quants.c",
-    "common/arg.h",
-    "common/arg.cpp",
 ]
 
 var llavaSources = [
@@ -30,6 +28,8 @@ var llavaSources = [
     "examples/llava/clip.cpp",
     "examples/llava/clip.h",
     "common/stb_image.h",
+    "common/arg.h",
+    "common/arg.cpp",
 ]
 
 var resources: [Resource] = []
@@ -88,9 +88,7 @@ let package = Package(
             sources: sources,
             resources: resources,
             publicHeadersPath: "spm-headers",
-            cSettings: cSettings + [
-                .headerSearchPath("common")
-            ],
+            cSettings: cSettings
             linkerSettings: linkerSettings
         ),
         .target(
