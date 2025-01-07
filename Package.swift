@@ -88,7 +88,7 @@ let package = Package(
             sources: sources,
             resources: resources,
             publicHeadersPath: "spm-headers",
-            cSettings: cSettings
+            cSettings: cSettings,
             linkerSettings: linkerSettings
         ),
         .target(
