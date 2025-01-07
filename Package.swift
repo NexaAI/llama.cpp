@@ -22,6 +22,14 @@ var sources = [
     "ggml/src/ggml-quants.c",
 ]
 
+var llavaSources = [
+    "examples/llava/llava.cpp",      // llava.cpp 在 examples/llava 目录中
+    "examples/llava/llava.h",
+    "examples/llava/clip.cpp",
+    "examples/llava/clip.h",
+    "common/stb_image.h",
+]
+
 var resources: [Resource] = []
 var linkerSettings: [LinkerSetting] = []
 var cSettings: [CSetting] = [
@@ -59,6 +67,7 @@ let package = Package(
     ],
     products: [
         .library(name: "llama", targets: ["llama"]),
+        .library(name: "llava", targets: ["llava"]),
     ],
     targets: [
         .target(
@@ -80,7 +89,18 @@ let package = Package(
             publicHeadersPath: "spm-headers",
             cSettings: cSettings,
             linkerSettings: linkerSettings
-        )
+        ),
+        .target(
+            name: "llava",
+            dependencies: ["llama"],
+            path: ".",  
+            sources: llavaSources,
+            resources: resources,
+            cSettings: cSettings + [
+                .headerSearchPath("common") 
+            ],
+            linkerSettings: linkerSettings
+        ),
     ],
     cxxLanguageStandard: .cxx11
 )
