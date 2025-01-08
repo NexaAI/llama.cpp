@@ -29,6 +29,8 @@ var llavaSources = [
     "examples/llava/llava.h",
     "examples/llava/clip.cpp",
     "examples/llava/clip.h",
+    "examples/llava/llava-cli.h",
+    "examples/llava/llava-cli.cpp",
 ]
 
 var resources: [Resource] = []
@@ -93,20 +95,8 @@ let package = Package(
             linkerSettings: linkerSettings
         ),
         .target(
-            name: "common",
-            dependencies: ["llama"],
-            path: ".",
-            sources: [
-                "common/arg.cpp",
-                "common/arg.h",
-            ],
-            publicHeadersPath: "spm/common", 
-            cSettings: [
-            ]
-        ),
-        .target(
             name: "llava",
-            dependencies: ["common", "llama"],
+            dependencies: ["llama"],
             path: ".",  
             sources: llavaSources,
             resources: resources,
