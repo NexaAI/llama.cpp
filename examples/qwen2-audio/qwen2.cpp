@@ -905,7 +905,7 @@ struct omni_streaming {
     };
 
     int32_t sample() {
-        llama_token id = common_sampler_sample(ctx_sampling_, ctx_omni_->ctx_llama, NULL);
+        llama_token id = common_sampler_sample(ctx_sampling_, ctx_omni_->ctx_llama, -1);
         common_sampler_accept(ctx_sampling_, id, true);
         static std::string ret_str;
         if (llama_token_is_eog(llama_get_model(ctx_omni_->ctx_llama), id)) {
