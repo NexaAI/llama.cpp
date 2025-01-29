@@ -6312,7 +6312,8 @@ static void llm_load_vocab(
                 vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_COMMAND_R;
                 vocab.tokenizer_clean_spaces = false;
             } else if (
-                tokenizer_pre == "qwen2") {
+                    tokenizer_pre == "qwen2" || 
+                    tokenizer_pre == "deepseek-r1-qwen") {
                 vocab.type_pre = LLAMA_VOCAB_PRE_TYPE_QWEN2;
                 vocab.tokenizer_clean_spaces = false;
             } else if (
@@ -21870,7 +21871,7 @@ static int32_t llama_chat_apply_template_internal(
         if (add_ass) {
             ss << "Assistant:";
         }
-    } else if (tmpl == "exaone3" || (tmpl_contains("[|system|]") && tmpl_contains("[|assistant|]") && tmpl_contains("[|endofturn|]"))) {
+    }else if (tmpl == "exaone3" || (tmpl_contains("[|system|]") && tmpl_contains("[|assistant|]") && tmpl_contains("[|endofturn|]"))) {
         // ref: https://huggingface.co/LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct/discussions/8#66bae61b1893d14ee8ed85bb
         // EXAONE-3.0-7.8B-Instruct
         for (auto message : chat) {
