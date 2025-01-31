@@ -1,2 +1,10 @@
 build/**
 .build/**
+
+models/**
+
+.vscode/**
+
+**/__pycache__/**
+
+**/build-info.cpp
