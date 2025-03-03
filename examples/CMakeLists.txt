@@ -6,10 +6,6 @@ find_package(Threads REQUIRED)
 
 # ...
 
-# flags
-
-llama_add_compile_flags()
-
 # examples
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -33,6 +29,9 @@ else()
     add_subdirectory(imatrix)
     add_subdirectory(infill)
     add_subdirectory(llama-bench)
+    add_subdirectory(omni-vlm)
+    add_subdirectory(nexa-omni-audio)
+    add_subdirectory(qwen2-audio)
     add_subdirectory(lookahead)
     add_subdirectory(lookup)
     add_subdirectory(main)
