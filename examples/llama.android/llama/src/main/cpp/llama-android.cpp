@@ -53,7 +53,7 @@
 //    auto path_to_model = env->GetStringUTFChars(filename, 0);
 //    LOGi("Loading model from %s", path_to_model);
 //
-//    auto model = llama_load_model_from_file(path_to_model, model_params);
+//    auto model = llama_model_load_from_file(path_to_model, model_params);
 //    env->ReleaseStringUTFChars(filename, path_to_model);
 //
 //    if (!model) {
@@ -91,12 +91,12 @@
 //    ctx_params.n_threads       = n_threads;
 //    ctx_params.n_threads_batch = n_threads;
 //
-//    llama_context * context = llama_new_context_with_model(model, ctx_params);
+//    llama_context * context = llama_init_from_model(model, ctx_params);
 //
 //    if (!context) {
-//        LOGe("llama_new_context_with_model() returned null)");
+//        LOGe("llama_init_from_model() returned null)");
 //        env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),
-//                      "llama_new_context_with_model() returned null)");
+//                      "llama_init_from_model() returned null)");
 //        return 0;
 //    }
 //
@@ -374,7 +374,7 @@
 //    const auto new_token_id = llama_sample_token_greedy(context, &candidates_p);
 //
 //    const auto n_cur = env->CallIntMethod(intvar_ncur, la_int_var_value);
-//    if (llama_token_is_eog(model, new_token_id) || n_cur == n_len) {
+//    if (llama_vocab_is_eog(model, new_token_id) || n_cur == n_len) {
 //        return nullptr;
 //    }
 //

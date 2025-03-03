@@ -47,15 +47,15 @@ struct omni_streaming_sample {
             :image_(image) {
         n_past_ = 0;
         dec_cnt_ = 0;
-        params.sparams.top_k = 1;
-        params.sparams.top_p = 1.0f;
-        ctx_sampling_ = common_sampler_init(model, params.sparams);
+        params.sampling.top_k = 1;
+        params.sampling.top_p = 1.0f;
+        ctx_sampling_ = common_sampler_init(model, params.sampling);
     }
 
     int32_t sample() {
         const llama_token id = common_sampler_sample(ctx_sampling_, ctx_omnivlm->ctx_llama, -1);
         common_sampler_accept(ctx_sampling_, id, true);
-        if (llama_token_is_eog(llama_get_model(ctx_omnivlm->ctx_llama), id)) {
+        if (llama_vocab_is_eog(llama_model_get_vocab(llama_get_model(ctx_omnivlm->ctx_llama)), id)) {
             ret_str_ = "</s>";
         } else {
             ret_str_ = common_token_to_piece(ctx_omnivlm->ctx_llama, id);
@@ -97,7 +97,7 @@ static struct llama_model * omnivlm_init(common_params * params) {
 
     llama_model_params model_params = common_model_params_to_llama(*params);
 
-    llama_model * model = llama_load_model_from_file(params->model.c_str(), model_params);
+    llama_model * model = llama_model_load_from_file(params->model.c_str(), model_params);
     if (model == NULL) {
         LOG_ERR("%s: unable to load model\n" , __func__);
         return NULL;
@@ -120,7 +120,7 @@ static struct omnivlm_context * omnivlm_init_context(common_params * params, lla
     llama_context_params ctx_params = common_context_params_to_llama(*params);
     ctx_params.n_ctx           = params->n_ctx < 2048 ? 2048 : params->n_ctx; // we need a longer context size to process image embeddings
 
-    llama_context * ctx_llama = llama_new_context_with_model(model, ctx_params);
+    llama_context * ctx_llama = llama_init_from_model(model, ctx_params);
 
     if (ctx_llama == NULL) {
         LOG_ERR("%s: failed to create the llama_context\n" , __func__);
@@ -170,7 +170,7 @@ static const char * sample(struct common_sampler * smpl,
     const llama_token id = common_sampler_sample(smpl, ctx_llama, -1);
     common_sampler_accept(smpl, id, true);
     static std::string ret;
-    if (llama_token_is_eog(llama_get_model(ctx_llama), id)) {
+    if (llama_vocab_is_eog(llama_model_get_vocab(llama_get_model(ctx_llama)), id)) {
         ret = "</s>";
     } else {
         ret = common_token_to_piece(ctx_llama, id);
@@ -206,8 +206,8 @@ static const char* process_prompt(struct omnivlm_context * ctx_omnivlm, struct o
         }
     }
 
-    params->sparams.top_k = 1;
-    params->sparams.top_p = 1.0f;
+    params->sampling.top_k = 1;
+    params->sampling.top_p = 1.0f;
 
     eval_string(ctx_omnivlm->ctx_llama, system_prompt.c_str(), params->n_batch, &n_past, true);
     omnivlm_eval_image_embed(ctx_omnivlm->ctx_llama, image_embed, params->n_batch, &n_past);
@@ -217,7 +217,7 @@ static const char* process_prompt(struct omnivlm_context * ctx_omnivlm, struct o
 
     LOG("\n");
 
-    struct common_sampler * smpl = common_sampler_init(ctx_omnivlm->model, params->sparams);
+    struct common_sampler * smpl = common_sampler_init(ctx_omnivlm->model, params->sampling);
     if (!smpl) {
         LOG_ERR("%s: failed to initialize sampling subsystem\n", __func__);
         exit(1);

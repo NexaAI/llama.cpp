@@ -628,7 +628,7 @@ static const char * sample(struct common_sampler * ctx_sampling,
     const llama_token id = common_sampler_sample(ctx_sampling, ctx_llama, -1);
     common_sampler_accept(ctx_sampling, id, true);
     static std::string ret;
-    if (llama_token_is_eog(llama_get_model(ctx_llama), id)) {
+    if (llama_vocab_is_eog(llama_model_get_vocab(llama_get_model(ctx_llama)), id)) {
         ret = "</s>";
     } else {
         ret = common_token_to_piece(ctx_llama, id);
@@ -661,7 +661,7 @@ struct omni_context *omni_init_context(omni_context_params &params)
 
     llama_model_params model_params = common_model_params_to_llama(all_params.gpt);
 
-    llama_model *model = llama_load_model_from_file(all_params.gpt.model.c_str(), model_params);
+    llama_model *model = llama_model_load_from_file(all_params.gpt.model.c_str(), model_params);
     if (model == NULL)
     {
         LLAMA_LOG_ERROR("%s: unable to load model\n", __func__);
@@ -671,7 +671,7 @@ struct omni_context *omni_init_context(omni_context_params &params)
     llama_context_params ctx_params = common_context_params_to_llama(all_params.gpt);
     ctx_params.n_ctx = all_params.gpt.n_ctx < 2048 ? 2048 : all_params.gpt.n_ctx; // we need a longer context size to process image embeddings
 
-    llama_context *ctx_llama = llama_new_context_with_model(model, ctx_params);
+    llama_context *ctx_llama = llama_init_from_model(model, ctx_params);
 
     if (ctx_llama == NULL)
     {
@@ -729,7 +729,7 @@ void omni_free(struct omni_context *ctx_omni)
 
 static bool omni_eval_audio_embed(llama_context *ctx_llama, ggml_tensor *audio_embed, int n_batch, int *n_past)
 {
-    int n_embd = llama_n_embd(llama_get_model(ctx_llama));
+    int n_embd = llama_model_n_embd(llama_get_model(ctx_llama));
 
     int n_audio_embed = audio_embed->ne[1];
     GGML_ASSERT(audio_embed->ne[0] == n_embd);
@@ -829,7 +829,7 @@ const char* omni_process_prompt(struct omni_context *ctx_omni, ggml_tensor *audi
 
     LOG("\n");
 
-    struct common_sampler * ctx_sampling = common_sampler_init(ctx_omni->model, params.gpt.sparams);
+    struct common_sampler * ctx_sampling = common_sampler_init(ctx_omni->model, params.gpt.sampling);
     if (!ctx_sampling) {
         fprintf(stderr, "%s: failed to initialize sampling subsystem\n", __func__);
         exit(1);
@@ -890,14 +890,14 @@ struct omni_streaming {
         : ctx_omni_(ctx), params_(params) {
         dec_cnt_ = 0;
         n_past_ = 0;
-        ctx_sampling_ = common_sampler_init(ctx_omni_->model, params_.gpt.sparams);
+        ctx_sampling_ = common_sampler_init(ctx_omni_->model, params_.gpt.sampling);
     };
 
     int32_t sample() {
         llama_token id = common_sampler_sample(ctx_sampling_, ctx_omni_->ctx_llama, -1);
         common_sampler_accept(ctx_sampling_, id, true);
         static std::string ret_str;
-        if (llama_token_is_eog(llama_get_model(ctx_omni_->ctx_llama), id)) {
+        if (llama_vocab_is_eog(llama_model_get_vocab(llama_get_model(ctx_omni_->ctx_llama)), id)) {
             ret_str = "</s>";
         } else {
             ret_str = common_token_to_piece(ctx_omni_->ctx_llama, id);
