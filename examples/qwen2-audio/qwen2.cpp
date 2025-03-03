@@ -723,7 +723,7 @@ void omni_free(struct omni_context *ctx_omni)
     }
 
     llama_free(ctx_omni->ctx_llama);
-    llama_free_model(ctx_omni->model);
+    llama_model_free(ctx_omni->model);
     llama_backend_free();
     free(ctx_omni);
 }

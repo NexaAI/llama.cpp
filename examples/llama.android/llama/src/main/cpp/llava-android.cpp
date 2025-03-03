@@ -161,7 +161,7 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_nexa_NexaVlmInference_free_1model(JNIEnv *env, jobject /* this */, jlong jmodel) {
     const auto llava_model = reinterpret_cast<llama_model *>(jmodel);
 
-    llama_free_model(llava_model);
+    llama_model_free(llava_model);
 }
 
 

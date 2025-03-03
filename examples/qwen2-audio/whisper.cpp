@@ -70,6 +70,7 @@
 // use your favorite implementations
 #define DR_WAV_IMPLEMENTATION
 #include "dr_wav.h"
+#include "gguf.h"
 
 #if defined(_MSC_VER)
 #pragma warning(disable : 4244 4267) // possible loss of data

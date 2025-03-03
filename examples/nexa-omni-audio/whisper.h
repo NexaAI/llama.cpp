@@ -2,6 +2,7 @@
 #define WHISPER_H
 
 #include "ggml.h"
+#include "gguf.h"
 
 #include <stddef.h>
 #include <stdint.h>

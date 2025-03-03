@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "ggml.h"
+#include "gguf.h"
 // #include "src/ggml-impl.h"
 #include "ggml-alloc.h"
 #include "ggml-backend.h"

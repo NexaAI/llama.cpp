@@ -68,7 +68,7 @@
 //extern "C"
 //JNIEXPORT void JNICALL
 //Java_com_nexa_LLamaAndroid_free_1model(JNIEnv *, jobject, jlong model) {
-//    llama_free_model(reinterpret_cast<llama_model *>(model));
+//    llama_model_free(reinterpret_cast<llama_model *>(model));
 //}
 //
 //extern "C"

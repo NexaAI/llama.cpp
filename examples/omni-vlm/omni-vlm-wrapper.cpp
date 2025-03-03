@@ -256,7 +256,7 @@ static void omnivlm_free(struct omnivlm_context * ctx_omnivlm) {
     }
 
     llama_free(ctx_omnivlm->ctx_llama);
-    llama_free_model(ctx_omnivlm->model);
+    llama_model_free(ctx_omnivlm->model);
     llama_backend_free();
 }
 
@@ -331,7 +331,7 @@ void omnivlm_free() {
         ctx_omnivlm->model = nullptr;
         omnivlm_free(ctx_omnivlm);
     }
-    llama_free_model(model);
+    llama_model_free(model);
 }
 
 
