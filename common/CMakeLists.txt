@@ -75,6 +75,9 @@ add_library(${TARGET} STATIC
     sampling.h
     speculative.cpp
     speculative.h
+    common-nexa.h
+    common-nexa.cpp
+    dr_wav.h
     )
 
 if (BUILD_SHARED_LIBS)

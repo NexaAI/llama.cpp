@@ -412,6 +412,8 @@ struct common_params {
 
     std::string lora_outfile = "ggml-lora-merged-f16.gguf";
 
+    std::string omni_vlm_version = "vlm-81-ocr";
+
     // batched-bench params
     bool batched_bench_output_jsonl = false;
 };
