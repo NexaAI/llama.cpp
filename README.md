@@ -1,6 +1,8 @@
 # llama.cpp
 
-This repo is cloned from llama.cpp [commit 74d73dc85cc2057446bf63cc37ff649ae7cebd80](https://github.com/ggerganov/llama.cpp/tree/74d73dc85cc2057446bf63cc37ff649ae7cebd80). It is compatible with llama-cpp-python [commit 7ecdd944624cbd49e4af0a5ce1aa402607d58dcc](https://github.com/abetlen/llama-cpp-python/commit/7ecdd944624cbd49e4af0a5ce1aa402607d58dcc)
+> Last updated on Mar 4th, 2025.
+
+This repo is cloned from llama.cpp [commit 06c2b1561d8b882bc018554591f8c35eb04ad30e](https://github.com/ggml-org/llama.cpp/tree/06c2b1561d8b882bc018554591f8c35eb04ad30e). It is compatible with llama-cpp-python [commit 710e19a81284e5af0d5db93cef7a9063b3e8534f](https://github.com/abetlen/llama-cpp-python/tree/710e19a81284e5af0d5db93cef7a9063b3e8534f)
 
 ## Customize quantization group size at compilation (CPU inference only)
 
