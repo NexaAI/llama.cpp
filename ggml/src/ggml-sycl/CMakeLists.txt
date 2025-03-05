@@ -1,3 +1,5 @@
+message(STATUS  "GGML_SYCL_TARGET=${GGML_SYCL_TARGET}")
+
 if (NOT GGML_SYCL_TARGET MATCHES "^(INTEL|NVIDIA|AMD)$")
     message(FATAL_ERROR "Invalid backend chosen, supported options are INTEL, NVIDIA, or AMD")
 endif()
@@ -16,12 +18,10 @@ endif()
 message(STATUS "SYCL found")
 #todo: AOT
 
-add_library(ggml-sycl
-            ggml-sycl.cpp
-            ../../include/ggml-sycl.h)
-
-target_link_libraries(ggml-sycl PRIVATE ggml-base)
-target_include_directories(ggml-sycl PRIVATE . ..)
+ggml_add_backend_library(ggml-sycl
+                         ggml-sycl.cpp
+                         ../../include/ggml-sycl.h
+                        )
 
 if (GGML_SYCL_F16)
     if (GGML_SYCL_TARGET STREQUAL "AMD")
@@ -70,12 +70,17 @@ else()
         target_link_libraries(ggml-sycl PRIVATE sycl OpenCL mkl_core pthread m dl mkl_sycl_blas mkl_intel_ilp64 mkl_tbb_thread)
     elseif (GGML_SYCL_TARGET STREQUAL "NVIDIA")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=nvptx64-nvidia-cuda")
-        target_link_libraries(ggml-sycl PRIVATE sycl pthread m dl onemkl)
+        add_compile_definitions(GGML_SYCL_NVIDIA)
+        target_link_libraries(ggml-sycl PRIVATE sycl pthread m dl onemkl_blas_cublas)
     elseif (GGML_SYCL_TARGET STREQUAL "AMD")
-        if (GGML_SYCL_HIP_TARGET STREQUAL "")
-            message(ERROR "Can't enable SYCL hip backend, GGML_SYCL_HIP_TARGET has not been set.")
+        if (NOT GGML_SYCL_DEVICE_ARCH)
+            message(ERROR "Can't enable SYCL hip backend, GGML_SYCL_DEVICE_ARCH has not been set.")
         endif()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=${GGML_SYCL_HIP_TARGET}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl-targets=amdgcn-amd-amdhsa")
         target_link_libraries(ggml-sycl PRIVATE sycl pthread m dl onemkl)
     endif()
+
+    if (GGML_SYCL_DEVICE_ARCH)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xsycl-target-backend --offload-arch=${GGML_SYCL_DEVICE_ARCH}")
+  endif()
 endif()
